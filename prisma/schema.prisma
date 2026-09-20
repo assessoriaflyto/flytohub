@@ -1,0 +1,358 @@
+// ============================================================================
+// FLYTOHUB — SCHEMA DE BANCO DE DADOS (PRISMA ORM)
+// Sistema ERP/CRM e Command Center Central da Assessoria Flyto
+// Arquitetura preparada para PostgreSQL (Supabase) com suporte a histórico completo
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ----------------------------------------------------------------------------
+// ENUMS DO SISTEMA
+// ----------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN              // Acesso total a contratos, financeiro e configurações
+  TRAFFIC_MANAGER    // Foco em ROAS, campanhas, otimizações 72h e checklists
+  SOCIAL_MEDIA       // Foco em auditoria Instagram, criativos e captação
+  CS_ATTENDANT       // Foco em onboarding, saúde do cliente, avisos prévios e reuniões
+}
+
+enum ClientStatus {
+  ONBOARDING         // Em fase de integração (Welcome e Kick-off)
+  ATIVO              // Operação rodando normalmente
+  AVISO_PREVIO       // Em aviso prévio de cancelamento (30 dias)
+  INATIVO            // Contrato finalizado / Churn
+}
+
+enum HealthRelationship {
+  MUITO_BOA          // Cliente promotor, comunicação ágil e alto engajamento
+  BOA                // Relacionamento saudável e alinhado
+  MEDIA              // Atenção pontual necessária em reuniões ou entregas
+  RUIM               // Risco de insatisfação ou atrito na comunicação
+  MUITO_RUIM         // Alerta vermelho crítico / Risco iminente de Churn
+}
+
+enum PlanType {
+  STARTER            // R$ 500/mês — Gestão de Anúncios + Otimização 72h + Sistemas + Relatórios (Vídeos do cliente)
+  ESSENTIAL          // R$ 650/mês — Destaque 3 Estrelas: Gestão + Otimização + Criativos Semanais + Relatórios
+  GROWTH             // R$ 1.000/mês — Destaque Diamante: Gestão + Landing Page + Edição de Vídeos + Dashboards
+  CUSTOM             // Contrato personalizado ou serviços sob demanda adicionais
+}
+
+enum BillingCycle {
+  MENSAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+}
+
+enum PaymentMethod {
+  PIX
+  CARTAO
+  BOLETO
+  TRANSFERENCIA
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CaptureStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+// ----------------------------------------------------------------------------
+// 1. USUÁRIOS E PERMISSÕES INTERNAS
+// ----------------------------------------------------------------------------
+
+model User {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  name            String
+  role            UserRole         @default(TRAFFIC_MANAGER)
+  avatarUrl       String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relacionamentos com auditorias e tarefas
+  auditsInstagram AuditInstagram[]
+  auditsMenu      AuditMenu[]
+  tasksAssigned   ActionTask[]     @relation("AssignedTasks")
+  vaultAudits     AccessVaultLog[]
+
+  @@map("users")
+}
+
+// ----------------------------------------------------------------------------
+// 2. MÓDULO CORE: GESTÃO DE CLIENTES E CONTRATOS
+// ----------------------------------------------------------------------------
+
+model Client {
+  id                 String             @id @default(cuid())
+  
+  // Dados Base
+  name               String             // Razão Social ou Nome de Registro
+  tradeName          String             // Nome Fantasia (ex: "Burguer Prime")
+  segment            String             // Nicho Gastronômico (Hamburgueria, Pizzaria, etc.)
+  cnpj               String?            @unique
+  city               String             // Cidade (ex: "Brasília")
+  state              String             // UF (ex: "DF")
+  address            String?
+  owners             String             // Dono(s) e contatos principais
+  phone              String             // WhatsApp principal para contato rápido
+  email              String?            // E-mail de faturamento/comercial
+  instagramHandle    String?            // @ do Instagram oficial
+  websiteUrl         String?            // Site ou Link da Bio
+  
+  // Operação e Horários do Estabelecimento Gastronômico
+  openingHours       String             // Ex: "18:00 às 23:30"
+  businessDays       String             // Ex: "Terça a Domingo"
+
+  // Contrato e Financeiro (Planos Oficiais Flyto)
+  plan               PlanType           @default(ESSENTIAL)
+  customServices     String[]           @default([]) // Serviços sob demanda (ex: ["Landing Page", "Identidade Visual"])
+  paymentMethod      PaymentMethod      @default(PIX)
+  billingCycle       BillingCycle       @default(MENSAL)
+  monthlyFee         Decimal            @db.Decimal(10, 2) // Valor da mensalidade (R$)
+  contractStartDate  DateTime           // Data de início do contrato
+  contractEndDate    DateTime           // Data de término para cálculo de renovação
+
+  // Status e Saúde do Cliente
+  status             ClientStatus       @default(ONBOARDING)
+  relationshipHealth HealthRelationship @default(BOA)
+  ltvTotal           Decimal            @default(0.00) @db.Decimal(12, 2) // LTV totalizado
+  currentRoas        Float              @default(0.0) // ROAS atual (ex: 4.8)
+
+  // Operação Semanal Rápida (Status da Semana Corrente)
+  dailyCheckDone     Boolean            @default(false)
+  weeklyReportSent   Boolean            @default(false)
+  creativeDelivered  Boolean            @default(false)
+  callDone           Boolean            @default(false)
+
+  // Módulo de Onboarding e Retenção (Churn)
+  welcomeDate        DateTime?          // Data da reunião de Welcome
+  kickoffDate        DateTime?          // Data do Kick-off oficial ("Tempo Rodando" conta a partir daqui)
+  noticeDate         DateTime?          // Data de registro do Aviso Prévio
+  terminationDate    DateTime?          // Data de encerramento efetivo do contrato
+  churnReason        String?            @db.Text // Motivo estruturado do cancelamento
+  churnObservation   String?            @db.Text // Observações ricas do time de CS
+
+  // Metadados
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relacionamentos com suporte a histórico completo (1:N)
+  accessVault        AccessVault?       // Cofre de senhas ativo
+  accessVaultLogs    AccessVaultLog[]   // Histórico de auditoria de acessos
+  captureSchedules   CaptureSchedule[]  // Histórico e futuros agendamentos de captação
+  auditsInstagram    AuditInstagram[]   // Histórico de auditorias de Instagram
+  auditsMenu         AuditMenu[]        // Histórico de auditorias de Cardápio Digital
+  actionTasks        ActionTask[]       // Fila de tarefas geradas pelo plano de ação
+  weeklyOperations   WeeklyOperation[]  // Histórico semanal de checklists operacionais
+
+  @@index([status])
+  @@index([relationshipHealth])
+  @@map("clients")
+}
+
+// ----------------------------------------------------------------------------
+// 3. MÓDULO DE SEGURANÇA: COFRE DE ACESSOS (PROTEGIDO)
+// ----------------------------------------------------------------------------
+
+model AccessVault {
+  id               String           @id @default(cuid())
+  clientId         String           @unique
+  client           Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Credenciais Ofuscadas / Criptografadas
+  facebookLogin    String?
+  facebookPassword String?
+  facebookBmId     String?          // ID do Business Manager / Conta de Anúncios
+
+  instagramLogin   String?
+  instagramPassword String?
+
+  menuProvider     String?          // Ex: "Goomer", "Anota AI", "Cardápio Web", "InstaDelivery"
+  menuLogin        String?
+  menuPassword     String?
+
+  ifoodLogin       String?
+  ifoodPassword    String?
+  ifoodMerchantId  String?          // ID da loja no iFood Portal do Parceiro
+
+  emailLogin       String?
+  emailPassword    String?
+
+  securityNotes    String?          @db.Text
+  lastRotatedAt    DateTime?
+  updatedAt        DateTime         @updatedAt
+
+  @@map("access_vaults")
+}
+
+model AccessVaultLog {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      String   // "VIEWED_CREDENTIALS", "COPIED_PASSWORD", "UPDATED_SECRETS"
+  credential  String   // "FACEBOOK", "INSTAGRAM", "MENU", "IFOOD", "EMAIL"
+  timestamp   DateTime @default(now())
+
+  @@map("access_vault_logs")
+}
+
+// ----------------------------------------------------------------------------
+// 4. MÓDULO DE LOGÍSTICA: CAPTAÇÃO DE MATERIAL AUDIOVISUAL
+// ----------------------------------------------------------------------------
+
+model CaptureSchedule {
+  id              String        @id @default(cuid())
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  lastCaptureDate DateTime?     // Data da última captação realizada
+  nextCaptureDate DateTime      // Data da próxima captação (Alerta visual se < 7 dias)
+  photographer    String?       // Fotógrafo / Videomaker responsável (ex: "Lucas Audiovisual")
+  location        String?       // Endereço / Unidade da gravação
+  status          CaptureStatus @default(SCHEDULED)
+  briefingNotes   String?       @db.Text // Pratos a gravar, promoções, ângulos e equipamentos
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([nextCaptureDate])
+  @@map("capture_schedules")
+}
+
+// ----------------------------------------------------------------------------
+// 5. MÓDULO DE QUALIDADE: MOTOR DE AUDITORIA GAMIFICADA
+// ----------------------------------------------------------------------------
+
+model AuditInstagram {
+  id                  String       @id @default(cuid())
+  clientId            String
+  client              Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  auditedById         String?
+  auditedBy           User?        @relation(fields: [auditedById], references: [id], onDelete: SetNull)
+
+  // Critérios Avaliados de 1 a 5 estrelas
+  postFrequency       Int          // Nota 1-5 (Se <= 2 -> gera Task "Criar calendário de postagens semanal")
+  visualQuality       Int          // Nota 1-5 (Qualidade visual das fotos e vídeos)
+  cookingVideos       Int          // Nota 1-5 (Se <= 2 -> gera Task "Agendar captação de vídeos de preparo e bastidores")
+  captionClarity      Int          // Nota 1-5 (Se <= 2 -> gera Task "Reescrever copies com call-to-action gastronômica")
+  organizedHighlights Int          // Nota 1-5 (Destaques organizados: horários, cardápio, depoimentos, local)
+
+  overallScore        Float        // Média ponderada calculada (ex: 4.2 / 5.0)
+  notes               String?      @db.Text
+  auditedAt           DateTime     @default(now())
+
+  // Tarefas geradas automaticamente a partir desta auditoria
+  tasks               ActionTask[]
+
+  @@map("audits_instagram")
+}
+
+model AuditMenu {
+  id                     String       @id @default(cuid())
+  clientId               String
+  client                 Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  auditedById            String?
+  auditedBy              User?        @relation(fields: [auditedById], references: [id], onDelete: SetNull)
+
+  // Critérios Avaliados de 1 a 5 estrelas
+  easyAccessLink         Int          // Nota 1-5 (Se <= 2 -> gera Task "Corrigir link da bio e direcionamento para cardápio")
+  attractiveDesign       Int          // Nota 1-5 (Design atrativo e organizado)
+  realAppealingPhotos    Int          // Nota 1-5 (Se <= 2 -> gera Task "Fotografar pratos reais servidos")
+  clearProductDescription Int         // Nota 1-5 (Se <= 2 -> gera Task "Revisar precificação e descrições dos pratos")
+  menuQuality            Int          // Nota 1-5 (Presença e usabilidade geral do cardápio)
+
+  overallScore           Float        // Média ponderada calculada (ex: 4.5 / 5.0)
+  notes                  String?      @db.Text
+  auditedAt              DateTime     @default(now())
+
+  // Tarefas geradas automaticamente a partir desta auditoria
+  tasks                  ActionTask[]
+
+  @@map("audits_menu")
+}
+
+// ----------------------------------------------------------------------------
+// 6. MOTOR DE AUTOMAÇÃO DE PLANO DE AÇÃO (FILA DE TAREFAS GERADAS)
+// ----------------------------------------------------------------------------
+
+model ActionTask {
+  id                String          @id @default(cuid())
+  clientId          String
+  client            Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  title             String          // Ex: "Fotografar pratos reais servidos"
+  description       String?         @db.Text
+  category          String          // "INSTAGRAM_AUDIT", "MENU_AUDIT", "TRAFFIC", "OPERATIONAL"
+  generatedByRule   String?         // Ex: "RULE_MENU_REAL_PHOTOS_LOW"
+  priority          TaskPriority    @default(MEDIUM)
+  status            TaskStatus      @default(PENDING)
+
+  // Vínculo opcional com a auditoria que gerou a task
+  auditInstagramId  String?
+  auditInstagram    AuditInstagram? @relation(fields: [auditInstagramId], references: [id], onDelete: SetNull)
+  auditMenuId       String?
+  auditMenu         AuditMenu?      @relation(fields: [auditMenuId], references: [id], onDelete: SetNull)
+
+  assignedToId      String?
+  assignedTo        User?           @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  dueDate           DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([clientId, status])
+  @@map("action_tasks")
+}
+
+// ----------------------------------------------------------------------------
+// 7. HISTÓRICO DE OPERAÇÕES SEMANAIS (ERP ANALÍTICO)
+// ----------------------------------------------------------------------------
+
+model WeeklyOperation {
+  id                String   @id @default(cuid())
+  clientId          String
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  weekStartDate     DateTime // Data da segunda-feira de referência
+  dailyCheckDone    Boolean  @default(false)
+  weeklyReportSent  Boolean  @default(false)
+  creativeDelivered Boolean  @default(false)
+  callDone          Boolean  @default(false)
+  roasRecorded      Float?   // ROAS da semana
+  notes             String?  @db.Text
+
+  createdAt         DateTime @default(now())
+
+  @@unique([clientId, weekStartDate])
+  @@map("weekly_operations")
+}
