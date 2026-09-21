@@ -214,7 +214,7 @@ export const AuditAndReferralsDashboard: React.FC<AuditAndReferralsDashboardProp
               className="px-3.5 py-2 rounded-xl text-xs font-black bg-[#277e1b] dark:bg-[#00FF66] text-white dark:text-[#07130E] hover:opacity-95 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Nova Indicação</span>
+              <span>Nova Indicação</span>
             </button>
           </div>
 

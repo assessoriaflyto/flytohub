@@ -186,7 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full py-2.5 px-3 rounded-xl text-xs font-black bg-[#277e1b] dark:bg-[#00FF66] text-white dark:text-[#07130E] hover:opacity-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Cadastrar Novo Lead</span>
+                <span>Cadastrar Novo Lead</span>
               </button>
             </div>
           )}

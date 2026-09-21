@@ -288,6 +288,13 @@ export const App: React.FC = () => {
     );
   };
 
+  const handleDeleteUser = (userId: string) => {
+    const userToDelete = users.find(u => u.id === userId);
+    if (!userToDelete) return;
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    recordAudit('ADMIN', 'EXCLUSAO', userToDelete.name, `Excluiu permanentemente o usuário/colaborador do sistema.`);
+  };
+
   const handleCreateSquad = (newSquad: Omit<Squad, 'id' | 'createdAt'>) => {
     const created: Squad = {
       ...newSquad,
@@ -298,6 +305,14 @@ export const App: React.FC = () => {
     recordAudit('ADMIN', 'CRIACAO', created.name, `Criou novo squad de trabalho na assessoria.`);
   };
 
+  const handleDeleteSquad = (squadId: string) => {
+    const squadToDelete = squads.find(s => s.id === squadId);
+    if (!squadToDelete) return;
+    setSquads(prev => prev.filter(s => s.id !== squadId));
+    setUsers(prev => prev.map(u => u.squadId === squadId ? { ...u, squadId: undefined } : u));
+    recordAudit('ADMIN', 'EXCLUSAO', squadToDelete.name, `Excluiu permanentemente o squad "${squadToDelete.name}".`);
+  };
+
   const handleCreateGoalEvent = (newEvent: Omit<GoalEvent, 'id' | 'status'>) => {
     const created: GoalEvent = {
       ...newEvent,
@@ -306,6 +321,26 @@ export const App: React.FC = () => {
     };
     setGoalEvents(prev => [created, ...prev]);
     recordAudit('ADMIN', 'CRIACAO', created.title, `Criou novo evento de competição de metas.`);
+  };
+
+  const handleDeleteGoalEvent = (eventId: string) => {
+    const goalToDelete = goalEvents.find(g => g.id === eventId);
+    if (!goalToDelete) return;
+    setGoalEvents(prev => prev.filter(g => g.id !== eventId));
+    recordAudit('ADMIN', 'EXCLUSAO', goalToDelete.title, `Excluiu a batalha de metas "${goalToDelete.title}".`);
+  };
+
+  const handleToggleGoalEventStatus = (eventId: string) => {
+    setGoalEvents(prev =>
+      prev.map(g => {
+        if (g.id === eventId) {
+          const nextStatus = g.status === 'ATIVO' ? 'ENCERRADO' : 'ATIVO';
+          recordAudit('ADMIN', 'STATUS', g.title, `Alterou status da batalha de metas para: ${nextStatus}`);
+          return { ...g, status: nextStatus };
+        }
+        return g;
+      })
+    );
   };
 
   const handleUpdateUserProfile = (updatedUser: Partial<UserAccount>) => {
@@ -1130,8 +1165,12 @@ export const App: React.FC = () => {
                 onUpdateUserSquadAndRole={handleUpdateUserSquadAndRole}
                 onApplyWarning={handleApplyWarning}
                 onToggleUserSuspension={handleToggleUserSuspension}
+                onDeleteUser={handleDeleteUser}
                 onCreateSquad={handleCreateSquad}
+                onDeleteSquad={handleDeleteSquad}
                 onCreateGoalEvent={handleCreateGoalEvent}
+                onDeleteGoalEvent={handleDeleteGoalEvent}
+                onToggleGoalEventStatus={handleToggleGoalEventStatus}
               />
             )}
 

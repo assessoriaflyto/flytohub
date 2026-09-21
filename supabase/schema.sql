@@ -252,18 +252,44 @@ ALTER TABLE public.creative_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.one_off_services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
--- Políticas de RLS
+-- Políticas de RLS (com DROP POLICY IF EXISTS para permitir re-execução sem erros)
+DROP POLICY IF EXISTS "Permitir acesso total a squads para equipe autenticada" ON public.squads;
 CREATE POLICY "Permitir acesso total a squads para equipe autenticada" ON public.squads FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso a usuarios para equipe autenticada" ON public.users;
 CREATE POLICY "Permitir acesso a usuarios para equipe autenticada" ON public.users FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso completo a clientes para gestores autenticados" ON public.clients;
 CREATE POLICY "Permitir acesso completo a clientes para gestores autenticados" ON public.clients FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso aos leads apenas para equipe autenticada" ON public.leads;
 CREATE POLICY "Permitir acesso aos leads apenas para equipe autenticada" ON public.leads FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso as indicacoes apenas para equipe autenticada" ON public.referral_deals;
 CREATE POLICY "Permitir acesso as indicacoes apenas para equipe autenticada" ON public.referral_deals FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso aos logs de auditoria apenas para equipe autenticada" ON public.audit_logs;
 CREATE POLICY "Permitir acesso aos logs de auditoria apenas para equipe autenticada" ON public.audit_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso aos avisos gerais apenas para equipe autenticada" ON public.team_announcements;
 CREATE POLICY "Permitir acesso aos avisos gerais apenas para equipe autenticada" ON public.team_announcements FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso as calls apenas para equipe autenticada" ON public.team_calls;
 CREATE POLICY "Permitir acesso as calls apenas para equipe autenticada" ON public.team_calls FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso aos estudos apenas para equipe autenticada" ON public.study_materials;
 CREATE POLICY "Permitir acesso aos estudos apenas para equipe autenticada" ON public.study_materials FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso aos eventos de metas para equipe autenticada" ON public.goal_events;
 CREATE POLICY "Permitir acesso aos eventos de metas para equipe autenticada" ON public.goal_events FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso a criativos para equipe autenticada" ON public.creative_tasks;
 CREATE POLICY "Permitir acesso a criativos para equipe autenticada" ON public.creative_tasks FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso a servicos avulsos para equipe autenticada" ON public.one_off_services;
 CREATE POLICY "Permitir acesso a servicos avulsos para equipe autenticada" ON public.one_off_services FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir acesso a notificacoes para equipe autenticada" ON public.notifications;
 CREATE POLICY "Permitir acesso a notificacoes para equipe autenticada" ON public.notifications FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
 

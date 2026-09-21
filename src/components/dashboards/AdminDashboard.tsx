@@ -19,7 +19,10 @@ import {
   Flame, 
   Award,
   Layers,
-  Edit2
+  Edit2,
+  Trash2,
+  Play,
+  Square
 } from 'lucide-react';
 import { UserAccount, Squad, GoalEvent, AuditLogEntry, UserRole, UserWarning, AuditModule } from '../../types/hub';
 import { formatBRL, formatDateBR } from '../../utils/formatters';
@@ -35,8 +38,12 @@ interface AdminDashboardProps {
   onUpdateUserSquadAndRole: (userId: string, role: UserRole, squadId?: string) => void;
   onApplyWarning: (userId: string, reason: string) => void;
   onToggleUserSuspension: (userId: string) => void;
+  onDeleteUser?: (userId: string) => void;
   onCreateSquad: (newSquad: Omit<Squad, 'id' | 'createdAt'>) => void;
+  onDeleteSquad?: (squadId: string) => void;
   onCreateGoalEvent: (newEvent: Omit<GoalEvent, 'id' | 'status'>) => void;
+  onDeleteGoalEvent?: (eventId: string) => void;
+  onToggleGoalEventStatus?: (eventId: string) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -50,8 +57,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateUserSquadAndRole,
   onApplyWarning,
   onToggleUserSuspension,
+  onDeleteUser,
   onCreateSquad,
-  onCreateGoalEvent
+  onDeleteSquad,
+  onCreateGoalEvent,
+  onDeleteGoalEvent,
+  onToggleGoalEventStatus
 }) => {
   const [activeAdminTab, setActiveAdminTab] = useState<'USERS' | 'SQUADS' | 'GOALS' | 'LOGS'>('USERS');
 
@@ -441,6 +452,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 {isSuspended ? 'Reativar' : 'Suspender'}
                               </button>
                             )}
+
+                            {user.id !== currentUser.id && onDeleteUser && (
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Deseja realmente excluir permanentemente o colaborador ${user.name}?`)) {
+                                    onDeleteUser(user.id);
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 transition-colors cursor-pointer"
+                                title="Excluir Colaborador Permanentemente"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -472,52 +497,79 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               className="px-3.5 py-2 rounded-xl text-xs font-black bg-[#277e1b] dark:bg-[#00FF66] text-white dark:text-[#07130E] hover:opacity-90 flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Criar Novo Squad</span>
+              <span>Criar Novo Squad</span>
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {squads.map((squad) => {
-              const members = users.filter(u => u.squadId === squad.id);
+          {squads.length === 0 ? (
+            <div className="p-12 text-center bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] rounded-3xl space-y-3">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-[#277e1b]/10 dark:bg-[#00FF66]/10 flex items-center justify-center text-[#277e1b] dark:text-[#00FF66]">
+                <Layers className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-black text-slate-900 dark:text-white">Nenhum Squad Cadastrado</h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Crie seus squads operacionais (ex: Squad Alpha, Squad Scale) para organizar seus gestores e clientes.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {squads.map((squad) => {
+                const members = users.filter(u => u.squadId === squad.id);
 
-              return (
-                <div 
-                  key={squad.id}
-                  className="p-5 rounded-2xl bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] space-y-3 shadow-xs"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: squad.color }} />
-                      <h4 className="text-sm font-black text-slate-900 dark:text-white">{squad.name}</h4>
+                return (
+                  <div 
+                    key={squad.id}
+                    className="p-5 rounded-2xl bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] space-y-3 shadow-xs relative group"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: squad.color }} />
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white">{squad.name}</h4>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-[#696969] bg-slate-100 dark:bg-[#121315] px-2 py-0.5 rounded-md">
+                          {members.length} membro{members.length > 1 ? 's' : ''}
+                        </span>
+                        {onDeleteSquad && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Deseja realmente excluir o squad "${squad.name}"?`)) {
+                                onDeleteSquad(squad.id);
+                              }
+                            }}
+                            className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                            title="Excluir Squad"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-[#696969] bg-slate-100 dark:bg-[#121315] px-2 py-0.5 rounded-md">
-                      {members.length} membro{members.length > 1 ? 's' : ''}
-                    </span>
-                  </div>
 
-                  <p className="text-xs text-slate-600 dark:text-[#A0AEC0] leading-relaxed">
-                    {squad.description}
-                  </p>
+                    <p className="text-xs text-slate-600 dark:text-[#A0AEC0] leading-relaxed">
+                      {squad.description}
+                    </p>
 
-                  <div className="pt-2 border-t border-slate-100 dark:border-[#25282C]">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Membros Alocados:</span>
-                    <div className="space-y-1">
-                      {members.length === 0 ? (
-                        <span className="text-xs text-slate-400 italic">Nenhum gestor alocado</span>
-                      ) : (
-                        members.map(m => (
-                          <div key={m.id} className="text-xs text-slate-700 dark:text-white flex items-center justify-between">
-                            <span>{m.name}</span>
-                            <span className="text-[10px] text-slate-400">{m.role}</span>
-                          </div>
-                        ))
-                      )}
+                    <div className="pt-2 border-t border-slate-100 dark:border-[#25282C]">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Membros Alocados:</span>
+                      <div className="space-y-1">
+                        {members.length === 0 ? (
+                          <span className="text-xs text-slate-400 italic">Nenhum gestor alocado</span>
+                        ) : (
+                          members.map(m => (
+                            <div key={m.id} className="text-xs text-slate-700 dark:text-white flex items-center justify-between">
+                              <span>{m.name}</span>
+                              <span className="text-[10px] text-slate-400">{m.role}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -542,79 +594,141 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               className="px-3.5 py-2 rounded-xl text-xs font-black bg-[#277e1b] dark:bg-[#00FF66] text-white dark:text-[#07130E] hover:opacity-90 flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Criar Evento de Meta</span>
+              <span>Criar Evento de Meta</span>
             </button>
           </div>
 
-          <div className="space-y-4">
-            {goalEvents.map((goal) => (
-              <div 
-                key={goal.id}
-                className="p-5 rounded-3xl bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] space-y-4 shadow-xs"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                        {goal.status === 'ATIVO' ? 'Campanha em Andamento' : 'Encerrada'}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        Período: {goal.startDate} até {goal.endDate}
-                      </span>
-                    </div>
-                    <h4 className="text-base font-black text-slate-900 dark:text-white mt-1">{goal.title}</h4>
-                    <p className="text-xs text-slate-600 dark:text-[#A0AEC0] mt-0.5">{goal.description}</p>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-left sm:text-right shrink-0">
-                    <span className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400 block">Premiação Prometida</span>
-                    <span className="text-xs font-black text-amber-900 dark:text-amber-200">{goal.prize}</span>
-                  </div>
-                </div>
-
-                {/* Placar dos Squads */}
-                <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-[#25282C]">
-                  <span className="text-xs font-bold text-slate-700 dark:text-[#A0AEC0] block">
-                    Ranking Atual por Squad:
-                  </span>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {goal.squadScores.map((score, idx) => {
-                      const sq = squads.find(s => s.id === score.squadId);
-                      const pct = Math.min(100, Math.round((score.currentValue / goal.targetValue) * 100));
-
-                      return (
-                        <div 
-                          key={score.squadId}
-                          className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#121315] border border-slate-200 dark:border-[#2D3035] space-y-2"
-                        >
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: sq?.color }} />
-                              <span>{sq?.name || score.squadId}</span>
-                            </span>
-                            <span className="font-black text-[#277e1b] dark:text-[#00FF66] tabular-nums">{pct}%</span>
-                          </div>
-
-                          <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-[#1F2124] overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-emerald-600 to-[#00FF66] rounded-full transition-all duration-500"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-
-                          <div className="flex items-center justify-between text-[11px] text-slate-500">
-                            <span>Pontuação: <strong>{formatBRL(score.currentValue)}</strong></span>
-                            <span>Meta: {formatBRL(goal.targetValue)}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+          {goalEvents.length === 0 ? (
+            <div className="p-12 text-center bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] rounded-3xl space-y-3">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center text-amber-500">
+                <Trophy className="w-6 h-6" />
               </div>
-            ))}
-          </div>
+              <h4 className="text-sm font-black text-slate-900 dark:text-white">Nenhuma Batalha de Metas Ativa</h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Crie um evento de metas acima para premiar os gestores e squads que atingirem o melhor faturamento ou ROAS.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {goalEvents.map((goal) => (
+                <div 
+                  key={goal.id}
+                  className="p-5 rounded-3xl bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] space-y-4 shadow-xs"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                          goal.status === 'ATIVO' 
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300' 
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                        }`}>
+                          {goal.status === 'ATIVO' ? 'Campanha em Andamento' : 'Encerrada'}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          Período: {goal.startDate} até {goal.endDate}
+                        </span>
+                      </div>
+                      <h4 className="text-base font-black text-slate-900 dark:text-white mt-1">{goal.title}</h4>
+                      <p className="text-xs text-slate-600 dark:text-[#A0AEC0] mt-0.5">{goal.description}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-left sm:text-right shrink-0">
+                        <span className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400 block">Premiação Prometida</span>
+                        <span className="text-xs font-black text-amber-900 dark:text-amber-200">{goal.prize}</span>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5 shrink-0">
+                        {onToggleGoalEventStatus && (
+                          <button
+                            onClick={() => onToggleGoalEventStatus(goal.id)}
+                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
+                              goal.status === 'ATIVO'
+                                ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-300 hover:bg-amber-200'
+                                : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/50 dark:text-[#00FF66] hover:bg-emerald-200'
+                            }`}
+                            title={goal.status === 'ATIVO' ? 'Encerrar Campanha' : 'Iniciar Campanha'}
+                          >
+                            {goal.status === 'ATIVO' ? (
+                              <>
+                                <Square className="w-3 h-3 text-amber-600 fill-amber-600" />
+                                <span>Encerrar</span>
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3 h-3 text-emerald-600 fill-emerald-600" />
+                                <span>Iniciar</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {onDeleteGoalEvent && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Deseja realmente excluir a meta "${goal.title}"?`)) {
+                                onDeleteGoalEvent(goal.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 text-rose-600 transition-colors cursor-pointer flex items-center justify-center"
+                            title="Excluir Campanha"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Placar dos Squads */}
+                  <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-[#25282C]">
+                    <span className="text-xs font-bold text-slate-700 dark:text-[#A0AEC0] block">
+                      Ranking Atual por Squad:
+                    </span>
+
+                    {goal.squadScores.length === 0 ? (
+                      <div className="text-xs text-slate-400 italic">Nenhum score registrado ainda.</div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {goal.squadScores.map((score, idx) => {
+                          const sq = squads.find(s => s.id === score.squadId);
+                          const pct = Math.min(100, Math.round((score.currentValue / goal.targetValue) * 100));
+
+                          return (
+                            <div 
+                              key={score.squadId}
+                              className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#121315] border border-slate-200 dark:border-[#2D3035] space-y-2"
+                            >
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: sq?.color }} />
+                                  <span>{sq?.name || score.squadId}</span>
+                                </span>
+                                <span className="font-black text-[#277e1b] dark:text-[#00FF66] tabular-nums">{pct}%</span>
+                              </div>
+
+                              <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-[#1F2124] overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-emerald-600 to-[#00FF66] rounded-full transition-all duration-500"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+
+                              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                <span>Pontuação: <strong>{formatBRL(score.currentValue)}</strong></span>
+                                <span>Meta: {formatBRL(goal.targetValue)}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

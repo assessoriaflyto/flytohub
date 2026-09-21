@@ -147,7 +147,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
             </div>
           </div>
 
-          {/* Campo de Nicho com opção dinâmica "+ Criar Nicho" */}
+          {/* Campo de Nicho com opção dinâmica "Criar Nicho" */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="font-bold text-slate-700 dark:text-[#A0AEC0]">Nicho / Segmento *</label>
@@ -161,7 +161,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                   className="text-[11px] font-bold text-[#277e1b] dark:text-[#00FF66] hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   <PlusCircle className="w-3 h-3" />
-                  <span>+ Criar nicho</span>
+                  <span>Criar nicho</span>
                 </button>
               ) : (
                 <button
