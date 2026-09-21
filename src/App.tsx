@@ -625,14 +625,26 @@ export const App: React.FC = () => {
   // --------------------------------------------------------------------------
   // HANDLERS: SERVIÇOS AVULSOS
   // --------------------------------------------------------------------------
-  const handleAddService = (newService: Omit<OneOffService, 'id' | 'createdAt'>) => {
-    const created: OneOffService = {
-      ...newService,
-      id: `srv_${Date.now()}`,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    setServices(prev => [created, ...prev]);
-    recordAudit('SERVICOS_AVULSOS', 'CRIACAO', created.clientName, `Cadastrou projeto avulso: "${created.title}". Preço: R$ ${created.price.toLocaleString('pt-BR')}`);
+  const handleSaveService = (serviceData: Omit<OneOffService, 'id' | 'createdAt'>, serviceId?: string) => {
+    if (serviceId) {
+      setServices(prev =>
+        prev.map(s => {
+          if (s.id === serviceId) {
+            recordAudit('SERVICOS_AVULSOS', 'EDICAO', serviceData.clientName, `Editou o projeto avulso: "${serviceData.title}". Preço: R$ ${serviceData.price.toLocaleString('pt-BR')}`);
+            return { ...s, ...serviceData };
+          }
+          return s;
+        })
+      );
+    } else {
+      const created: OneOffService = {
+        ...serviceData,
+        id: `srv_${Date.now()}`,
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+      setServices(prev => [created, ...prev]);
+      recordAudit('SERVICOS_AVULSOS', 'CRIACAO', created.clientName, `Cadastrou projeto avulso: "${created.title}". Preço: R$ ${created.price.toLocaleString('pt-BR')}`);
+    }
   };
 
   const handleUpdateDeliveryStatus = (id: string, status: OneOffService['deliveryStatus']) => {
@@ -660,6 +672,10 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteService = (id: string) => {
+    const servToDelete = services.find(s => s.id === id);
+    if (servToDelete) {
+      recordAudit('SERVICOS_AVULSOS', 'EXCLUSAO', servToDelete.clientName, `Excluiu o projeto avulso: "${servToDelete.title}".`);
+    }
     setServices(prev => prev.filter(s => s.id !== id));
   };
 
@@ -714,6 +730,13 @@ export const App: React.FC = () => {
         return l;
       })
     );
+  };
+
+  const handleDeleteLead = (leadId: string) => {
+    const leadToDelete = leads.find(l => l.id === leadId);
+    if (!leadToDelete) return;
+    setLeads(prev => prev.filter(l => l.id !== leadId));
+    recordAudit('COMERCIAL', 'EXCLUSAO', leadToDelete.companyName, `Oportunidade removida do CRM.`);
   };
 
   const handleConvertLeadToClient = (lead: CommercialLead) => {
@@ -868,6 +891,19 @@ export const App: React.FC = () => {
     recordAudit('INDICACOES', 'CRIACAO', created.referredClientName, `Cadastrou indicação feita por "${created.partnerName}". Comissão: R$ ${created.commissionTotalBrl.toLocaleString('pt-BR')}`);
   };
 
+  const handleUpdateReferral = (id: string, updated: Partial<ReferralDeal>) => {
+    setReferrals(prev =>
+      prev.map(r => {
+        if (r.id === id) {
+          const merged = { ...r, ...updated };
+          recordAudit('INDICACOES', 'EDICAO', merged.referredClientName, `Atualizou informações da indicação feita por "${merged.partnerName}".`);
+          return merged;
+        }
+        return r;
+      })
+    );
+  };
+
   const handleUpdateReferralStatus = (id: string, status: ReferralStatus) => {
     setReferrals(prev =>
       prev.map(r => {
@@ -878,6 +914,13 @@ export const App: React.FC = () => {
         return r;
       })
     );
+  };
+
+  const handleDeleteReferral = (id: string) => {
+    const refToDelete = referrals.find(r => r.id === id);
+    if (!refToDelete) return;
+    setReferrals(prev => prev.filter(r => r.id !== id));
+    recordAudit('INDICACOES', 'EXCLUSAO', refToDelete.referredClientName, `Excluiu a indicação feita por "${refToDelete.partnerName}".`);
   };
 
   // --------------------------------------------------------------------------
@@ -1075,10 +1118,13 @@ export const App: React.FC = () => {
             {activeTab === 'COMMERCIAL' && (
               <CommercialDashboard
                 leads={leads}
+                clients={clients}
+                services={services}
                 currentUser={currentUser}
                 onUpdateLeadStatus={handleUpdateLeadStatus}
                 onOpenNewLeadModal={() => setIsNewLeadModalOpen(true)}
                 onConvertLeadToClient={handleConvertLeadToClient}
+                onDeleteLead={handleDeleteLead}
               />
             )}
 
@@ -1105,6 +1151,7 @@ export const App: React.FC = () => {
               <ServicesDashboard
                 services={services}
                 onAddServiceModalOpen={() => setIsNewServiceModalOpen(true)}
+                onSaveService={handleSaveService}
                 onUpdateDeliveryStatus={handleUpdateDeliveryStatus}
                 onUpdatePaymentStatus={handleUpdatePaymentStatus}
                 onDeleteService={handleDeleteService}
@@ -1116,7 +1163,9 @@ export const App: React.FC = () => {
                 referrals={referrals}
                 currentUser={currentUser}
                 onAddReferral={handleAddReferral}
+                onUpdateReferral={handleUpdateReferral}
                 onUpdateReferralStatus={handleUpdateReferralStatus}
+                onDeleteReferral={handleDeleteReferral}
               />
             )}
 
@@ -1227,7 +1276,7 @@ export const App: React.FC = () => {
       <NewServiceModal
         isOpen={isNewServiceModalOpen}
         onClose={() => setIsNewServiceModalOpen(false)}
-        onAddService={handleAddService}
+        onSaveService={handleSaveService}
       />
 
     </div>

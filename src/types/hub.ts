@@ -248,6 +248,10 @@ export interface CommercialLead {
   whatsapp: string;
   email?: string;
   segment: string;
+  city?: string;
+  state?: string;
+  address?: string;
+  websiteUrl?: string;
   estimatedBudget: number;
   proposedFee: number;
   source: LeadSource;
@@ -279,6 +283,7 @@ export interface ClientData {
   cnpj?: string;
   city: string;
   state: string;
+  address?: string;
   owners: string;
   phone: string;
   email?: string;

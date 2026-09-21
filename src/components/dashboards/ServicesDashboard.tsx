@@ -10,13 +10,18 @@ import {
   Trash2,
   FileText,
   User,
-  Filter
+  Filter,
+  Edit2
 } from 'lucide-react';
 import { OneOffService } from '../../types/hub';
+import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
+import { NewServiceModal } from '../modals/NewServiceModal';
+import { formatBRL } from '../../utils/formatters';
 
 interface ServicesDashboardProps {
   services: OneOffService[];
   onAddServiceModalOpen: () => void;
+  onSaveService: (serviceData: Omit<OneOffService, 'id' | 'createdAt'>, serviceId?: string) => void;
   onUpdateDeliveryStatus: (id: string, status: OneOffService['deliveryStatus']) => void;
   onUpdatePaymentStatus: (id: string, status: OneOffService['paymentStatus']) => void;
   onDeleteService: (id: string) => void;
@@ -25,12 +30,21 @@ interface ServicesDashboardProps {
 export const ServicesDashboard: React.FC<ServicesDashboardProps> = ({
   services,
   onAddServiceModalOpen,
+  onSaveService,
   onUpdateDeliveryStatus,
   onUpdatePaymentStatus,
   onDeleteService
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  // Modal de Edição
+  const [editingService, setEditingService] = useState<OneOffService | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Modal de Exclusão Segura
+  const [serviceToDelete, setServiceToDelete] = useState<OneOffService | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const filteredServices = services.filter(s => {
     const matchesSearch = 
@@ -47,23 +61,40 @@ export const ServicesDashboard: React.FC<ServicesDashboardProps> = ({
   const pendingCount = services.filter(s => s.deliveryStatus !== 'ENTREGUE').length;
   const completedCount = services.filter(s => s.deliveryStatus === 'ENTREGUE').length;
 
+  const handleOpenEdit = (service: OneOffService) => {
+    setEditingService(service);
+    setIsEditModalOpen(true);
+  };
+
+  const handleOpenDelete = (service: OneOffService) => {
+    setServiceToDelete(service);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (serviceToDelete) {
+      onDeleteService(serviceToDelete.id);
+      setServiceToDelete(null);
+    }
+  };
+
   const getDeliveryStatusBadge = (st: OneOffService['deliveryStatus']) => {
     switch (st) {
       case 'BRIEFING':
-        return { label: 'Briefing', color: 'text-zinc-600 dark:text-zinc-400' };
+        return { label: 'Briefing', color: 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-[#121315]' };
       case 'DESENVOLVIMENTO':
-        return { label: 'Em Desenvolvimento', color: 'text-blue-600 dark:text-blue-400' };
+        return { label: 'Em Desenvolvimento', color: 'text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40' };
       case 'REVISAO':
-        return { label: 'Em Revisão', color: 'text-amber-600 dark:text-amber-400' };
+        return { label: 'Em Revisão', color: 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40' };
       case 'ENTREGUE':
-        return { label: 'Entregue', color: 'text-[#277e1b] dark:text-[#00FF66]' };
+        return { label: 'Entregue', color: 'text-[#277e1b] dark:text-[#00FF66] bg-emerald-50 dark:bg-emerald-950/40' };
     }
   };
 
   const getPaymentStatusBadge = (st: OneOffService['paymentStatus']) => {
     switch (st) {
       case 'PAGO':
-        return { label: 'Pago', color: 'text-[#277e1b] dark:text-[#00FF66]' };
+        return { label: 'Pago (100%)', color: 'text-[#277e1b] dark:text-[#00FF66]' };
       case 'ENTRADA_50':
         return { label: '50% Entrada', color: 'text-amber-600 dark:text-amber-400' };
       case 'PENDENTE':
@@ -75,20 +106,20 @@ export const ServicesDashboard: React.FC<ServicesDashboardProps> = ({
     <div className="space-y-4">
       
       {/* 1. Header do Painel */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-white dark:bg-[#0E1814] border border-black/8 dark:border-white/10 rounded-2xl shadow-sm executive-card beam-border-slow">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] rounded-2xl shadow-xs beam-border-slow">
         <div>
-          <h2 className="text-base font-black text-[#0F1715] dark:text-white flex items-center gap-2">
+          <h2 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
             <Layers className="w-5 h-5 text-[#277e1b] dark:text-[#00FF66]" />
             <span>Serviços Avulsos</span>
           </h2>
-          <p className="text-xs text-[#7A8E87] dark:text-[#768E85] mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-[#8E959E] mt-0.5">
             Criação de sites, landing pages, apps, integrações e automações pontuais
           </p>
         </div>
 
         <button
           onClick={onAddServiceModalOpen}
-          className="px-4 py-2 rounded-xl text-xs font-bold bg-[#277e1b] dark:bg-[#00FF66] text-white dark:text-[#07130E] hover:opacity-90 transition-opacity flex items-center gap-1.5 cursor-pointer shadow-sm"
+          className="px-4 py-2 rounded-xl text-xs font-black bg-[#277e1b] dark:bg-[#00FF66] text-white dark:text-[#07130E] hover:opacity-90 transition-opacity flex items-center gap-1.5 cursor-pointer shadow-xs"
         >
           <Plus className="w-4 h-4" />
           <span>Novo Serviço</span>
@@ -97,44 +128,44 @@ export const ServicesDashboard: React.FC<ServicesDashboardProps> = ({
 
       {/* 2. Indicadores Gerais */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0E1814] border border-black/8 dark:border-white/10 executive-card">
-          <span className="text-[10px] uppercase font-bold text-[#7A8E87] dark:text-[#768E85] block">Volume de Projetos</span>
-          <span className="text-2xl font-black text-[#0F1715] dark:text-white tabular-nums tracking-tight">
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] shadow-xs">
+          <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#696969] block">Volume de Projetos</span>
+          <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
             {pendingCount} ativos
           </span>
-          <span className="text-[11px] text-[#7A8E87] dark:text-[#586E66] block">{completedCount} entregues</span>
+          <span className="text-[11px] text-slate-500 dark:text-[#8E959E] block">{completedCount} entregues</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0E1814] border border-black/8 dark:border-white/10 executive-card">
-          <span className="text-[10px] uppercase font-bold text-[#7A8E87] dark:text-[#768E85] block">Faturamento em Projetos</span>
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] shadow-xs">
+          <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#696969] block">Faturamento em Projetos</span>
           <span className="text-2xl font-black text-[#277e1b] dark:text-[#00FF66] tabular-nums tracking-tight">
-            {totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+            {formatBRL(totalValue)}
           </span>
-          <span className="text-[11px] text-[#7A8E87] dark:text-[#586E66] block">Contratos avulsos acumulados</span>
+          <span className="text-[11px] text-slate-500 dark:text-[#8E959E] block">Contratos avulsos acumulados</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0E1814] border border-black/8 dark:border-white/10 executive-card">
-          <span className="text-[10px] uppercase font-bold text-[#7A8E87] dark:text-[#768E85] block">Eficiência de Entrega</span>
-          <span className="text-2xl font-black text-[#0F1715] dark:text-white tabular-nums tracking-tight">
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] shadow-xs">
+          <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#696969] block">Eficiência de Entrega</span>
+          <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
             100% no prazo
           </span>
-          <span className="text-[11px] text-[#7A8E87] dark:text-[#586E66] block">SLA de desenvolvimento ativo</span>
+          <span className="text-[11px] text-slate-500 dark:text-[#8E959E] block">SLA de desenvolvimento ativo</span>
         </div>
       </div>
 
       {/* 3. Tabela de Serviços Avulsos */}
-      <div className="bg-white dark:bg-[#0E1814] border border-black/8 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm executive-card">
+      <div className="bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] rounded-2xl overflow-hidden shadow-xs">
         
         {/* Barra de Busca e Filtros */}
-        <div className="p-3 border-b border-black/6 dark:border-white/6 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="p-3 border-b border-slate-100 dark:border-[#25282C] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="relative max-w-sm w-full">
-            <Search className="w-4 h-4 text-[#7A8E87] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar serviço, cliente ou escopo..."
-              className="w-full pl-9 pr-3 py-1.5 bg-[#F6F8F7] dark:bg-[#122019] border border-black/6 dark:border-[#20382D] rounded-xl text-xs text-[#0F1715] dark:text-white focus:outline-none"
+              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-[#121315] border border-slate-200 dark:border-[#2D3035] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-hidden"
             />
           </div>
 
@@ -146,10 +177,10 @@ export const ServicesDashboard: React.FC<ServicesDashboardProps> = ({
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                   statusFilter === st
                     ? 'bg-[#277e1b]/10 dark:bg-[#00FF66]/15 text-[#277e1b] dark:text-[#00FF66] border border-[#277e1b]/30'
-                    : 'text-[#7A8E87] dark:text-[#768E85] hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                {st === 'ALL' ? 'Todos' : st}
+                {st === 'ALL' ? 'Todos' : st === 'DESENVOLVIMENTO' ? 'Desenvolvimento' : st === 'REVISAO' ? 'Revisão' : st === 'ENTREGUE' ? 'Entregue' : 'Briefing'}
               </button>
             ))}
           </div>
@@ -157,22 +188,22 @@ export const ServicesDashboard: React.FC<ServicesDashboardProps> = ({
 
         {/* Tabela */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-[#F8FAF9] dark:bg-[#122019] border-b border-black/6 dark:border-white/6 text-[11px] font-extrabold uppercase text-[#7A8E87] dark:text-[#768E85] tracking-wider">
+              <tr className="bg-slate-50/80 dark:bg-[#121315] border-b border-slate-200 dark:border-[#25282C] text-[11px] font-extrabold uppercase text-slate-500 dark:text-[#8E959E] tracking-wider">
                 <th className="py-3 px-4">Projeto / Serviço</th>
                 <th className="py-3 px-3">Cliente</th>
                 <th className="py-3 px-3">Valor Cobrado</th>
                 <th className="py-3 px-3">Pagamento</th>
                 <th className="py-3 px-3">Status de Entrega</th>
                 <th className="py-3 px-3">Prazo</th>
-                <th className="py-3 px-4 text-right">Ação</th>
+                <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/5 dark:divide-white/5 text-xs">
+            <tbody className="divide-y divide-slate-100 dark:divide-[#202226]">
               {filteredServices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-[#7A8E87] dark:text-[#768E85]">
+                  <td colSpan={7} className="py-12 text-center text-slate-400 dark:text-[#696969]">
                     Nenhum serviço avulso registrado com estes filtros.
                   </td>
                 </tr>
@@ -182,27 +213,27 @@ export const ServicesDashboard: React.FC<ServicesDashboardProps> = ({
                   const paymentInfo = getPaymentStatusBadge(serv.paymentStatus);
 
                   return (
-                    <tr key={serv.id} className="hover:bg-black/2 dark:hover:bg-white/2 transition-colors">
+                    <tr key={serv.id} className="hover:bg-slate-50/70 dark:hover:bg-[#1F2124] transition-colors">
                       
                       {/* Título & Escopo */}
                       <td className="py-3 px-4">
-                        <strong className="text-[#0F1715] dark:text-white font-bold block text-xs">
+                        <strong className="text-slate-900 dark:text-white font-bold block text-xs">
                           {serv.title}
                         </strong>
-                        <span className="text-[11px] text-[#7A8E87] dark:text-[#586E66] block line-clamp-1 mt-0.5">
+                        <span className="text-[11px] text-slate-500 dark:text-[#8E959E] block line-clamp-1 mt-0.5">
                           {serv.scope || serv.briefing}
                         </span>
                       </td>
 
                       {/* Cliente */}
                       <td className="py-3 px-3 whitespace-nowrap">
-                        <span className="font-semibold text-[#0F1715] dark:text-white block">{serv.clientName}</span>
-                        <span className="text-[10px] text-[#7A8E87]">{serv.clientContact}</span>
+                        <span className="font-extrabold text-slate-900 dark:text-white block">{serv.clientName}</span>
+                        <span className="text-[10px] text-slate-400">{serv.clientContact || 'Sem telefone'}</span>
                       </td>
 
                       {/* Valor */}
-                      <td className="py-3 px-3 whitespace-nowrap font-bold text-[#0F1715] dark:text-white tabular-nums">
-                        {serv.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+                      <td className="py-3 px-3 whitespace-nowrap font-black text-slate-900 dark:text-white tabular-nums">
+                        {formatBRL(serv.price)}
                       </td>
 
                       {/* Pagamento com Seletor */}
@@ -210,11 +241,11 @@ export const ServicesDashboard: React.FC<ServicesDashboardProps> = ({
                         <select
                           value={serv.paymentStatus}
                           onChange={(e) => onUpdatePaymentStatus(serv.id, e.target.value as any)}
-                          className={`bg-transparent text-[11px] font-bold cursor-pointer focus:outline-none ${paymentInfo.color}`}
+                          className={`bg-transparent text-[11px] font-bold cursor-pointer focus:outline-hidden ${paymentInfo.color}`}
                         >
-                          <option value="ENTRADA_50" className="bg-white dark:bg-[#0E1814] text-[#0F1715] dark:text-white">50% Entrada</option>
-                          <option value="PAGO" className="bg-white dark:bg-[#0E1814] text-[#0F1715] dark:text-white">Pago (100%)</option>
-                          <option value="PENDENTE" className="bg-white dark:bg-[#0E1814] text-[#0F1715] dark:text-white">Pendente</option>
+                          <option value="ENTRADA_50" className="bg-white dark:bg-[#181A1D] text-slate-900 dark:text-white">50% Entrada</option>
+                          <option value="PAGO" className="bg-white dark:bg-[#181A1D] text-slate-900 dark:text-white">Pago (100%)</option>
+                          <option value="PENDENTE" className="bg-white dark:bg-[#181A1D] text-slate-900 dark:text-white">Pendente</option>
                         </select>
                       </td>
 
@@ -223,29 +254,39 @@ export const ServicesDashboard: React.FC<ServicesDashboardProps> = ({
                         <select
                           value={serv.deliveryStatus}
                           onChange={(e) => onUpdateDeliveryStatus(serv.id, e.target.value as any)}
-                          className={`bg-transparent text-[11px] font-bold cursor-pointer focus:outline-none ${deliveryInfo.color}`}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-[#2D3035] cursor-pointer focus:outline-hidden ${deliveryInfo.color}`}
                         >
-                          <option value="BRIEFING" className="bg-white dark:bg-[#0E1814] text-[#0F1715] dark:text-white">Briefing</option>
-                          <option value="DESENVOLVIMENTO" className="bg-white dark:bg-[#0E1814] text-[#0F1715] dark:text-white">Em Desenvolvimento</option>
-                          <option value="REVISAO" className="bg-white dark:bg-[#0E1814] text-[#0F1715] dark:text-white">Revisão</option>
-                          <option value="ENTREGUE" className="bg-white dark:bg-[#0E1814] text-[#0F1715] dark:text-white">Entregue</option>
+                          <option value="BRIEFING" className="bg-white dark:bg-[#181A1D] text-slate-900 dark:text-white">Briefing</option>
+                          <option value="DESENVOLVIMENTO" className="bg-white dark:bg-[#181A1D] text-slate-900 dark:text-white">Em Desenvolvimento</option>
+                          <option value="REVISAO" className="bg-white dark:bg-[#181A1D] text-slate-900 dark:text-white">Revisão</option>
+                          <option value="ENTREGUE" className="bg-white dark:bg-[#181A1D] text-slate-900 dark:text-white">Entregue</option>
                         </select>
                       </td>
 
                       {/* Prazo */}
-                      <td className="py-3 px-3 whitespace-nowrap text-[#7A8E87] dark:text-[#A6C4B9] font-mono text-[11px]">
+                      <td className="py-3 px-3 whitespace-nowrap text-slate-500 dark:text-[#A0AEC0] font-mono text-[11px]">
                         {serv.deliveryDate}
                       </td>
 
-                      {/* Ação */}
+                      {/* Ações: Editar e Excluir */}
                       <td className="py-3 px-4 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => onDeleteService(serv.id)}
-                          className="p-1 rounded text-[#7A8E87] hover:text-rose-500 transition-colors"
-                          title="Excluir serviço"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenEdit(serv)}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#121315] dark:hover:bg-[#1F2124] text-slate-600 dark:text-[#A0AEC0] transition-colors cursor-pointer"
+                            title="Editar Serviço"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          
+                          <button
+                            onClick={() => handleOpenDelete(serv)}
+                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 text-rose-600 transition-colors cursor-pointer"
+                            title="Excluir Serviço com Segurança"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
 
                     </tr>
@@ -257,6 +298,32 @@ export const ServicesDashboard: React.FC<ServicesDashboardProps> = ({
         </div>
 
       </div>
+
+      {/* Modal de Edição de Serviço */}
+      <NewServiceModal
+        isOpen={isEditModalOpen}
+        editingService={editingService}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingService(null);
+        }}
+        onSaveService={onSaveService}
+      />
+
+      {/* Modal de Exclusão Segura */}
+      {serviceToDelete && (
+        <ConfirmDeleteModal
+          isOpen={isDeleteModalOpen}
+          title="Excluir Serviço Avulso"
+          itemName={serviceToDelete.clientName}
+          itemTypeDescription="o projeto avulso do cliente"
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setServiceToDelete(null);
+          }}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
 
     </div>
   );

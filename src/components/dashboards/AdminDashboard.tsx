@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { UserAccount, Squad, GoalEvent, AuditLogEntry, UserRole, UserWarning, AuditModule } from '../../types/hub';
 import { formatBRL, formatDateBR } from '../../utils/formatters';
+import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 
 interface AdminDashboardProps {
   currentUser: UserAccount;
@@ -65,6 +66,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onToggleGoalEventStatus
 }) => {
   const [activeAdminTab, setActiveAdminTab] = useState<'USERS' | 'SQUADS' | 'GOALS' | 'LOGS'>('USERS');
+
+  // Modais de Exclusão Segura
+  const [userToDelete, setUserToDelete] = useState<UserAccount | null>(null);
+  const [squadToDelete, setSquadToDelete] = useState<Squad | null>(null);
+  const [goalToDelete, setGoalToDelete] = useState<GoalEvent | null>(null);
 
   // Modais de Criação
   const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
@@ -455,13 +461,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                             {user.id !== currentUser.id && onDeleteUser && (
                               <button
-                                onClick={() => {
-                                  if (window.confirm(`Deseja realmente excluir permanentemente o colaborador ${user.name}?`)) {
-                                    onDeleteUser(user.id);
-                                  }
-                                }}
+                                onClick={() => setUserToDelete(user)}
                                 className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 transition-colors cursor-pointer"
-                                title="Excluir Colaborador Permanentemente"
+                                title="Excluir Colaborador com Segurança"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -532,11 +534,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </span>
                         {onDeleteSquad && (
                           <button
-                            onClick={() => {
-                              if (window.confirm(`Deseja realmente excluir o squad "${squad.name}"?`)) {
-                                onDeleteSquad(squad.id);
-                              }
-                            }}
+                            onClick={() => setSquadToDelete(squad)}
                             className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                             title="Excluir Squad"
                           >
@@ -666,11 +664,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                         {onDeleteGoalEvent && (
                           <button
-                            onClick={() => {
-                              if (window.confirm(`Deseja realmente excluir a meta "${goal.title}"?`)) {
-                                onDeleteGoalEvent(goal.id);
-                              }
-                            }}
+                            onClick={() => setGoalToDelete(goal)}
                             className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 text-rose-600 transition-colors cursor-pointer flex items-center justify-center"
                             title="Excluir Campanha"
                           >
@@ -1097,6 +1091,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modais de Exclusão Segura */}
+      {userToDelete && onDeleteUser && (
+        <ConfirmDeleteModal
+          isOpen={!!userToDelete}
+          title="Excluir Colaborador"
+          itemName={userToDelete.name}
+          itemTypeDescription="o colaborador e todo seu histórico"
+          onClose={() => setUserToDelete(null)}
+          onConfirm={() => {
+            onDeleteUser(userToDelete.id);
+            setUserToDelete(null);
+          }}
+        />
+      )}
+
+      {squadToDelete && onDeleteSquad && (
+        <ConfirmDeleteModal
+          isOpen={!!squadToDelete}
+          title="Excluir Squad"
+          itemName={squadToDelete.name}
+          itemTypeDescription="o squad e desvincular os membros associados"
+          onClose={() => setSquadToDelete(null)}
+          onConfirm={() => {
+            onDeleteSquad(squadToDelete.id);
+            setSquadToDelete(null);
+          }}
+        />
+      )}
+
+      {goalToDelete && onDeleteGoalEvent && (
+        <ConfirmDeleteModal
+          isOpen={!!goalToDelete}
+          title="Excluir Batalha de Metas"
+          itemName={goalToDelete.title}
+          itemTypeDescription="o evento de metas e placares registrados"
+          onClose={() => setGoalToDelete(null)}
+          onConfirm={() => {
+            onDeleteGoalEvent(goalToDelete.id);
+            setGoalToDelete(null);
+          }}
+        />
       )}
 
     </div>

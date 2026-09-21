@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS public.clients (
     cnpj TEXT,
     city TEXT DEFAULT 'Brasília',
     state TEXT DEFAULT 'DF',
+    address TEXT,
+    website_url TEXT,
     owners TEXT NOT NULL,
     phone TEXT NOT NULL,
     email TEXT,
@@ -81,7 +83,7 @@ CREATE INDEX IF NOT EXISTS idx_clients_status ON public.clients(status);
 CREATE INDEX IF NOT EXISTS idx_clients_trade_name ON public.clients(trade_name);
 
 -- ==============================================================================
--- 3. TABELA DE LEADS & OPORTUNIDADES (CRM COMERCIAL)
+-- 4. TABELA DE LEADS & OPORTUNIDADES (CRM COMERCIAL)
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.leads (
     id TEXT PRIMARY KEY DEFAULT ('lead_' || gen_random_uuid()),
@@ -90,6 +92,10 @@ CREATE TABLE IF NOT EXISTS public.leads (
     whatsapp TEXT NOT NULL,
     email TEXT,
     segment TEXT NOT NULL,
+    city TEXT,
+    state TEXT,
+    address TEXT,
+    website_url TEXT,
     estimated_budget NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     proposed_fee NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     source TEXT NOT NULL DEFAULT 'TRAFEGO_PAGO',
