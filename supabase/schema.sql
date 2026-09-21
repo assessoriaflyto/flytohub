@@ -1,9 +1,4 @@
--- ==============================================================================
--- FLYTOHUB — SCHEMA DE BANCO DE DADOS POSTGRESQL / SUPABASE
--- ARQUITETURA BLINDADA COM ROW LEVEL SECURITY (RLS) CONTRA VAZAMENTO DE DADOS
--- ==============================================================================
 
--- 1. Habilitar extensões necessárias
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
