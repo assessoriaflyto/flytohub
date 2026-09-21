@@ -13,11 +13,12 @@ import {
   Sparkles,
   ArrowLeft
 } from 'lucide-react';
-import { ClientData } from '../../types/hub';
+import { ClientData, UserAccount } from '../../types/hub';
 import { formatDateBR, formatBRL } from '../../utils/formatters';
 
 interface OnboardingDashboardProps {
   clients: ClientData[];
+  currentUser?: UserAccount;
   onToggleStep: (clientId: string, stepId: string) => void;
   onActivateClient: (clientId: string) => void;
   onOpenEditDriveModal: (client: ClientData) => void;
@@ -25,14 +26,26 @@ interface OnboardingDashboardProps {
 
 export const OnboardingDashboard: React.FC<OnboardingDashboardProps> = ({
   clients,
+  currentUser,
   onToggleStep,
   onActivateClient,
   onOpenEditDriveModal
 }) => {
+  const isTrafficManager = currentUser?.role === 'TRAFFIC_MANAGER';
+  const isCommercial = currentUser?.role === 'COMMERCIAL';
+
+  // Filtrar clientes por squad se o usuário for gestor de tráfego
+  const squadClients = clients.filter(c => {
+    if (isTrafficManager && currentUser?.squadId) {
+      return c.squadId === currentUser.squadId;
+    }
+    return true;
+  });
+
   // Clientes com status ONBOARDING
-  const onboardingClients = clients.filter(c => c.status === 'ONBOARDING');
+  const onboardingClients = squadClients.filter(c => c.status === 'ONBOARDING');
   // Clientes já ativos
-  const activeClients = clients.filter(c => c.status === 'ATIVO');
+  const activeClients = squadClients.filter(c => c.status === 'ATIVO');
 
   // Estado para controlar qual cliente está expandido (se null, todos podem estar recolhidos ou expandidos)
   const [expandedClientId, setExpandedClientId] = useState<string | null>(
@@ -201,19 +214,25 @@ export const OnboardingDashboard: React.FC<OnboardingDashboardProps> = ({
                           {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </button>
 
-                        {/* Botão de Ativar Cliente (acessível mesmo se faltar etapa, com confirmação) */}
-                        <button
-                          onClick={() => handleConfirmActivate(client)}
-                          className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
-                            isAllDone
-                              ? 'bg-[#277e1b] dark:bg-[#00FF66] text-white dark:text-[#07130E] hover:opacity-90'
-                              : 'bg-emerald-600/90 dark:bg-[#00FF66]/80 text-white dark:text-[#07130E] hover:opacity-95'
-                          }`}
-                          title="Finalizar implantação e liberar no Gestor de Tráfego"
-                        >
-                          <span>Mover para Ativo</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
+                        {/* Botão de Ativar Cliente (liberado apenas para Gestor de Tráfego e Admin) */}
+                        {!isCommercial ? (
+                          <button
+                            onClick={() => handleConfirmActivate(client)}
+                            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                              isAllDone
+                                ? 'bg-[#277e1b] dark:bg-[#00FF66] text-white dark:text-[#07130E] hover:opacity-90'
+                                : 'bg-emerald-600/90 dark:bg-[#00FF66]/80 text-white dark:text-[#07130E] hover:opacity-95'
+                            }`}
+                            title="Finalizar implantação e liberar no Gestor de Tráfego"
+                          >
+                            <span>Mover para Ativo</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <span className="px-3 py-1.5 rounded-xl text-[11px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-[#1F2124] border border-slate-200 dark:border-[#2D3035]">
+                            Ativação: Gestor / Admin
+                          </span>
+                        )}
                       </div>
                     </div>
 

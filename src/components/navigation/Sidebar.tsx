@@ -14,54 +14,92 @@ import {
   ExternalLink,
   Bell,
   Settings,
-  History,
-  GraduationCap
+  GraduationCap,
+  Megaphone,
+  Users,
+  Shield
 } from 'lucide-react';
-import { ActiveTab, ClientData, CommercialLead, CreativeTask, OneOffService } from '../../types/hub';
+import { ActiveTab, ClientData, CommercialLead, CreativeTask, OneOffService, UserAccount, UserRole } from '../../types/hub';
 
 interface SidebarProps {
   activeTab: ActiveTab;
   onTabChange: (tab: ActiveTab) => void;
+  currentUser: UserAccount;
+  unreadNotificationsCount: number;
+  onOpenNotifications: () => void;
+  onOpenUserProfile: () => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   clients: ClientData[];
   leads: CommercialLead[];
   creativeTasks: CreativeTask[];
   services: OneOffService[];
+  announcementsCount?: number;
   onOpenNewLeadModal: () => void;
   isMobileOpen: boolean;
   setIsMobileOpen: (open: boolean) => void;
 }
 
+const getRoleLabel = (role: UserRole) => {
+  switch (role) {
+    case 'ADMIN': return 'CEO & Diretoria';
+    case 'TRAFFIC_MANAGER': return 'Gestor de Tráfego';
+    case 'COMMERCIAL': return 'Comercial & CRM';
+    case 'SOCIAL_MEDIA': return 'Social Media';
+    default: return role;
+  }
+};
+
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
+  currentUser,
+  unreadNotificationsCount,
+  onOpenNotifications,
+  onOpenUserProfile,
   isDarkMode,
   onToggleDarkMode,
   clients,
   leads,
   creativeTasks,
   services,
+  announcementsCount = 0,
   onOpenNewLeadModal,
   isMobileOpen,
   setIsMobileOpen
 }) => {
-  const activeClientsCount = clients.filter(c => c.status === 'ATIVO').length;
-  const onboardingClientsCount = clients.filter(c => c.status === 'ONBOARDING').length;
+  const isTrafficManager = currentUser.role === 'TRAFFIC_MANAGER';
+  const squadClients = clients.filter(c => {
+    if (isTrafficManager && currentUser.squadId) {
+      return c.squadId === currentUser.squadId;
+    }
+    return true;
+  });
+
+  const activeClientsCount = squadClients.filter(c => c.status === 'ATIVO').length;
+  const onboardingClientsCount = squadClients.filter(c => c.status === 'ONBOARDING').length;
   const pendingCreativesCount = creativeTasks.filter(t => t.status !== 'PUBLICADO').length;
   const activeLeadsCount = leads.filter(l => l.status !== 'FECHADO' && l.status !== 'PERDIDO').length;
   const pendingServicesCount = services.filter(s => s.deliveryStatus !== 'ENTREGUE').length;
 
-  const navItems: { id: ActiveTab; label: string; icon: React.FC<{ className?: string }>; count?: number }[] = [
+  const rawNavItems: { id: ActiveTab; label: string; icon: React.FC<{ className?: string }>; count?: number; adminOnly?: boolean }[] = [
     { id: 'TRAFFIC', label: 'Gestor de Tráfego', icon: BarChart3, count: activeClientsCount },
     { id: 'SOCIAL_MEDIA', label: 'Social Media', icon: Video, count: pendingCreativesCount },
     { id: 'COMMERCIAL', label: 'Comercial', icon: Briefcase, count: activeLeadsCount },
     { id: 'ONBOARDING', label: 'Onboarding', icon: Rocket, count: onboardingClientsCount },
     { id: 'ACCESS', label: 'Acessos', icon: KeyRound },
     { id: 'ONE_OFF_SERVICES', label: 'Serviços Avulsos', icon: Layers, count: pendingServicesCount },
-    { id: 'INDICACOES_LOGS', label: 'Indicações & Logs', icon: History },
-    { id: 'ESTUDOS_ALINHAMENTO', label: 'Estudos & Alinhamento', icon: GraduationCap }
+    { id: 'PARTNERS', label: 'Parceiros & Indicações', icon: Users },
+    { id: 'ANNOUNCEMENTS', label: 'Avisos da Assessoria', icon: Megaphone, count: announcementsCount > 0 ? announcementsCount : undefined },
+    { id: 'TRAINING', label: 'Estudos & Treinamentos', icon: GraduationCap },
+    { id: 'ADMIN', label: 'Painel do Admin', icon: Shield, adminOnly: true }
   ];
+
+  // Filtra itens com restrição de cargo
+  const navItems = rawNavItems.filter(item => {
+    if (item.adminOnly && currentUser.role !== 'ADMIN') return false;
+    return true;
+  });
 
   const handleSelectTab = (tab: ActiveTab) => {
     onTabChange(tab);
@@ -124,7 +162,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </h1>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#277e1b] dark:bg-[#00FF66] animate-pulse" />
-                  <span className="text-[11px] font-semibold text-slate-500 dark:text-[#8E959E]">Central Ativa</span>
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-[#8E959E]">
+                    {currentUser.role === 'ADMIN' ? 'Painel Executivo' : 'Central Ativa'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -138,16 +178,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          {/* Botão Único de Entrada Comercial (Apenas Lead como solicitado!) */}
-          <div className="p-3 border-b border-slate-100 dark:border-[#25282C]">
-            <button
-              onClick={onOpenNewLeadModal}
-              className="w-full py-2.5 px-3 rounded-xl text-xs font-black bg-[#277e1b] dark:bg-[#00FF66] text-white dark:text-[#07130E] hover:opacity-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-            >
-              <Plus className="w-4 h-4" />
-              <span>+ Cadastrar Novo Lead</span>
-            </button>
-          </div>
+          {/* Botão de Entrada Comercial (Disponível se Comercial ou Admin) */}
+          {(currentUser.role === 'COMMERCIAL' || currentUser.role === 'ADMIN') && (
+            <div className="p-3 border-b border-slate-100 dark:border-[#25282C]">
+              <button
+                onClick={onOpenNewLeadModal}
+                className="w-full py-2.5 px-3 rounded-xl text-xs font-black bg-[#277e1b] dark:bg-[#00FF66] text-white dark:text-[#07130E] hover:opacity-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Cadastrar Novo Lead</span>
+              </button>
+            </div>
+          )}
 
           {/* Menu de Navegação */}
           <nav className="p-3 space-y-1">
@@ -189,44 +231,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-3 border-t border-slate-100 dark:border-[#25282C] space-y-2.5 shrink-0">
           
           {/* Caixa de Entrada para Notificações & Perfil Executivo */}
-          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#181A1D] border border-slate-200/80 dark:border-[#2D3035] flex items-center justify-between shadow-xs">
+          <div 
+            onClick={onOpenUserProfile}
+            className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#181A1D] border border-slate-200/80 dark:border-[#2D3035] flex items-center justify-between shadow-xs hover:border-emerald-500/40 transition cursor-pointer"
+          >
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative shrink-0">
-                <img
-                  src="/assets/perfil-instagram.png"
-                  alt="Perfil"
-                  className="w-9 h-9 rounded-xl object-cover border border-slate-200 dark:border-[#383C42]"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
+                {currentUser.avatarUrl ? (
+                  <img
+                    src={currentUser.avatarUrl}
+                    alt={currentUser.name}
+                    className="w-9 h-9 rounded-xl object-cover border border-slate-200 dark:border-[#383C42]"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white font-black flex items-center justify-center text-xs shadow-sm">
+                    {currentUser.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
                 <div className="w-2.5 h-2.5 rounded-full bg-[#277e1b] dark:bg-[#00FF66] absolute -bottom-0.5 -right-0.5 ring-2 ring-white dark:ring-[#181A1D]" />
               </div>
 
               <div className="min-w-0">
                 <strong className="text-xs font-bold text-slate-900 dark:text-white block truncate leading-tight">
-                  Lucas Mendonça
+                  {currentUser.name}
                 </strong>
                 <span className="text-[10px] text-slate-500 dark:text-[#8E959E] block truncate">
-                  Gestor de Performance
+                  {getRoleLabel(currentUser.role)}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
-              {/* Notificações / Caixa de Entrada */}
+            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+              {/* Notificações / Caixa de Entrada (Ponto verde SOMENTE se unreadNotificationsCount > 0!) */}
               <button
+                onClick={onOpenNotifications}
                 className="relative p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-[#8E959E] dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-[#25282C] transition-colors cursor-pointer"
-                title="Notificações da Central"
+                title={`Notificações (${unreadNotificationsCount} novas)`}
               >
                 <Bell className="w-4 h-4" />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#277e1b] dark:bg-[#00FF66]" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#277e1b] dark:bg-[#00FF66] animate-pulse" />
+                )}
               </button>
 
-              {/* Configurações */}
+              {/* Configurações de Perfil */}
               <button
+                onClick={onOpenUserProfile}
                 className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-[#8E959E] dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-[#25282C] transition-colors cursor-pointer"
-                title="Configurações da Central"
+                title="Meu Perfil & Configurações"
               >
                 <Settings className="w-4 h-4" />
               </button>

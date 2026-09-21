@@ -7,23 +7,37 @@ import {
   Filter, 
   Check
 } from 'lucide-react';
-import { CommercialLead, LeadStatus, LeadSource } from '../../types/hub';
+import { CommercialLead, LeadStatus, LeadSource, UserAccount } from '../../types/hub';
 import { formatDateBR, formatBRL } from '../../utils/formatters';
 
 interface CommercialDashboardProps {
   leads: CommercialLead[];
+  currentUser?: UserAccount;
   onUpdateLeadStatus: (leadId: string, newStatus: LeadStatus) => void;
   onOpenNewLeadModal: () => void;
   onConvertLeadToClient: (lead: CommercialLead) => void;
 }
 
+const STAGE_FILTERS: { key: string; label: string }[] = [
+  { key: 'ALL', label: 'Todas as Etapas' },
+  { key: 'NOVO', label: 'Novo Lead' },
+  { key: 'QUALIFICADO', label: 'Qualificado' },
+  { key: 'REUNIAO_AGENDADA', label: 'Reunião Agendada' },
+  { key: 'PROPOSTA_ENVIADA', label: 'Proposta Enviada' },
+  { key: 'FECHADO', label: 'Contrato Fechado' },
+  { key: 'PERDIDO', label: 'Perdido' },
+];
+
 export const CommercialDashboard: React.FC<CommercialDashboardProps> = ({
   leads,
+  currentUser,
   onUpdateLeadStatus,
   onOpenNewLeadModal,
   onConvertLeadToClient
 }) => {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  const canManageCommercial = !currentUser || currentUser.role === 'COMMERCIAL' || currentUser.role === 'ADMIN';
 
   const filteredLeads = leads.filter(l => {
     if (statusFilter !== 'ALL' && l.status !== statusFilter) return false;
@@ -103,13 +117,15 @@ export const CommercialDashboard: React.FC<CommercialDashboardProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={onOpenNewLeadModal}
-          className="px-4 py-2 rounded-xl text-xs font-bold bg-[#277e1b] dark:bg-[#00FF66] hover:opacity-95 text-white dark:text-[#07130E] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Cadastrar Lead</span>
-        </button>
+        {canManageCommercial && (
+          <button
+            onClick={onOpenNewLeadModal}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-[#277e1b] dark:bg-[#00FF66] hover:opacity-95 text-white dark:text-[#07130E] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Cadastrar Lead</span>
+          </button>
+        )}
       </div>
 
       {/* 2. Cartões de Indicadores de Vendas */}
@@ -155,17 +171,17 @@ export const CommercialDashboard: React.FC<CommercialDashboardProps> = ({
           <Filter className="w-3 h-3 text-[#277e1b] dark:text-[#00FF66]" />
           Etapa:
         </span>
-        {['ALL', 'NOVO', 'QUALIFICADO', 'REUNIAO_AGENDADA', 'PROPOSTA_ENVIADA', 'FECHADO', 'PERDIDO'].map((st) => (
+        {STAGE_FILTERS.map((item) => (
           <button
-            key={st}
-            onClick={() => setStatusFilter(st)}
+            key={item.key}
+            onClick={() => setStatusFilter(item.key)}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              statusFilter === st
+              statusFilter === item.key
                 ? 'bg-slate-900 dark:bg-[#00FF66] text-white dark:text-[#07130E] shadow-sm'
                 : 'text-slate-600 dark:text-[#A0AEC0] bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] hover:bg-slate-50 dark:hover:bg-[#25282C]'
             }`}
           >
-            {st === 'ALL' ? 'Todas Etapas' : st}
+            {item.label}
           </button>
         ))}
       </div>
@@ -244,9 +260,12 @@ export const CommercialDashboard: React.FC<CommercialDashboardProps> = ({
                       {/* Etapa com Seletor Rápido */}
                       <td className="py-3.5 px-3 whitespace-nowrap">
                         <select
+                          disabled={!canManageCommercial}
                           value={lead.status}
                           onChange={(e) => onUpdateLeadStatus(lead.id, e.target.value as LeadStatus)}
-                          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border focus:outline-none cursor-pointer transition-colors ${statusInfo.bg}`}
+                          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border focus:outline-none transition-colors ${
+                            !canManageCommercial ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
+                          } ${statusInfo.bg}`}
                         >
                           <option value="NOVO" className="bg-white dark:bg-[#1F2124] text-slate-900 dark:text-white">Novo Lead</option>
                           <option value="QUALIFICADO" className="bg-white dark:bg-[#1F2124] text-slate-900 dark:text-white">Qualificado</option>
@@ -272,14 +291,18 @@ export const CommercialDashboard: React.FC<CommercialDashboardProps> = ({
 
                       {/* Ação */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        {isClosed ? (
+                        {!canManageCommercial ? (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium italic">
+                            Apenas Comercial / Admin
+                          </span>
+                        ) : isClosed ? (
                           <button
                             onClick={() => onConvertLeadToClient(lead)}
                             className="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-[#277e1b] dark:bg-[#00FF66] text-white dark:text-[#07130E] hover:opacity-90 transition-all inline-flex items-center gap-1 cursor-pointer shadow-xs"
-                            title="Transformar em cliente e iniciar Onboarding"
+                            title="Iniciar Onboarding na esteira operacional"
                           >
                             <Check className="w-3 h-3" />
-                            <span>Ativar Onboarding</span>
+                            <span>Iniciar Onboarding</span>
                           </button>
                         ) : (
                           <button

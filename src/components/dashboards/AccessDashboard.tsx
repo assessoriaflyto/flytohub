@@ -25,7 +25,7 @@ import {
   Database,
   Layers
 } from 'lucide-react';
-import { ClientData, AccessVaultData, ExtraSiteAccess } from '../../types/hub';
+import { ClientData, AccessVaultData, ExtraSiteAccess, UserAccount } from '../../types/hub';
 import { formatDateBR } from '../../utils/formatters';
 
 const InstagramIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -38,15 +38,18 @@ const InstagramIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 interface AccessDashboardProps {
   clients: ClientData[];
+  currentUser?: UserAccount;
   onOpenEditDriveModal: (client: ClientData) => void;
   onUpdateClientVault?: (clientId: string, updatedVault: Partial<AccessVaultData>) => void;
 }
 
 export const AccessDashboard: React.FC<AccessDashboardProps> = ({
   clients,
+  currentUser,
   onOpenEditDriveModal,
   onUpdateClientVault
 }) => {
+  const isCommercial = currentUser?.role === 'COMMERCIAL';
   const [searchTerm, setSearchTerm] = useState('');
   // Inicia nulo para mostrar todos os cards dos clientes primeiro!
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -547,25 +550,36 @@ export const AccessDashboard: React.FC<AccessDashboardProps> = ({
                       Login Facebook / Meta
                     </span>
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => toggleReveal(`meta_pwd_${activeClient.id}`)}
-                        className="p-1 rounded text-slate-400 hover:text-slate-800 dark:text-[#696969] dark:hover:text-white transition-colors cursor-pointer"
-                      >
-                        {revealedKeys[`meta_pwd_${activeClient.id}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                      <button
-                        onClick={() => copyToClipboard(activeClient.accessVault.metaPassword, `cp_meta_${activeClient.id}`)}
-                        className="p-1 rounded text-slate-400 hover:text-slate-800 dark:text-[#696969] dark:hover:text-[#00FF66] transition-colors cursor-pointer"
-                        title="Copiar Senha"
-                      >
-                        {copiedKey === `cp_meta_${activeClient.id}` ? <Check className="w-3.5 h-3.5 text-[#277e1b] dark:text-[#00FF66]" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
+                      {isCommercial ? (
+                        <span className="text-[10px] font-semibold text-slate-400 dark:text-[#696969] flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                          <Lock className="w-3 h-3 text-slate-400" />
+                          Restrito
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => toggleReveal(`meta_pwd_${activeClient.id}`)}
+                            className="p-1 rounded text-slate-400 hover:text-slate-800 dark:text-[#696969] dark:hover:text-white transition-colors cursor-pointer"
+                          >
+                            {revealedKeys[`meta_pwd_${activeClient.id}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => copyToClipboard(activeClient.accessVault.metaPassword, `cp_meta_${activeClient.id}`)}
+                            className="p-1 rounded text-slate-400 hover:text-slate-800 dark:text-[#696969] dark:hover:text-[#00FF66] transition-colors cursor-pointer"
+                            title="Copiar Senha"
+                          >
+                            {copiedKey === `cp_meta_${activeClient.id}` ? <Check className="w-3.5 h-3.5 text-[#277e1b] dark:text-[#00FF66]" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="text-xs font-mono">
                     <p className="text-slate-800 dark:text-white font-semibold">{activeClient.accessVault.metaLogin || 'Sem login cadastrado'}</p>
                     <p className="text-slate-500 dark:text-[#A0AEC0] mt-0.5">
-                      {revealedKeys[`meta_pwd_${activeClient.id}`]
+                      {isCommercial
+                        ? '•••••••• (Acesso restrito ao time técnico)'
+                        : revealedKeys[`meta_pwd_${activeClient.id}`]
                         ? (activeClient.accessVault.metaPassword || '••••••••')
                         : '••••••••••••'}
                     </p>
@@ -580,25 +594,36 @@ export const AccessDashboard: React.FC<AccessDashboardProps> = ({
                       Login Google Workspace / Ads
                     </span>
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => toggleReveal(`google_pwd_${activeClient.id}`)}
-                        className="p-1 rounded text-slate-400 hover:text-slate-800 dark:text-[#696969] dark:hover:text-white transition-colors cursor-pointer"
-                      >
-                        {revealedKeys[`google_pwd_${activeClient.id}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                      <button
-                        onClick={() => copyToClipboard(activeClient.accessVault.googlePassword, `cp_google_${activeClient.id}`)}
-                        className="p-1 rounded text-slate-400 hover:text-slate-800 dark:text-[#696969] dark:hover:text-[#00FF66] transition-colors cursor-pointer"
-                        title="Copiar Senha"
-                      >
-                        {copiedKey === `cp_google_${activeClient.id}` ? <Check className="w-3.5 h-3.5 text-[#277e1b] dark:text-[#00FF66]" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
+                      {isCommercial ? (
+                        <span className="text-[10px] font-semibold text-slate-400 dark:text-[#696969] flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                          <Lock className="w-3 h-3 text-slate-400" />
+                          Restrito
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => toggleReveal(`google_pwd_${activeClient.id}`)}
+                            className="p-1 rounded text-slate-400 hover:text-slate-800 dark:text-[#696969] dark:hover:text-white transition-colors cursor-pointer"
+                          >
+                            {revealedKeys[`google_pwd_${activeClient.id}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => copyToClipboard(activeClient.accessVault.googlePassword, `cp_google_${activeClient.id}`)}
+                            className="p-1 rounded text-slate-400 hover:text-slate-800 dark:text-[#696969] dark:hover:text-[#00FF66] transition-colors cursor-pointer"
+                            title="Copiar Senha"
+                          >
+                            {copiedKey === `cp_google_${activeClient.id}` ? <Check className="w-3.5 h-3.5 text-[#277e1b] dark:text-[#00FF66]" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="text-xs font-mono">
                     <p className="text-slate-800 dark:text-white font-semibold">{activeClient.accessVault.googleLogin || 'Não configurado'}</p>
                     <p className="text-slate-500 dark:text-[#A0AEC0] mt-0.5">
-                      {revealedKeys[`google_pwd_${activeClient.id}`]
+                      {isCommercial
+                        ? '•••••••• (Acesso restrito ao time técnico)'
+                        : revealedKeys[`google_pwd_${activeClient.id}`]
                         ? (activeClient.accessVault.googlePassword || '••••••••')
                         : '••••••••••••'}
                     </p>
@@ -740,7 +765,7 @@ export const AccessDashboard: React.FC<AccessDashboardProps> = ({
                             <>
                               <span>&middot;</span>
                               <span>
-                                {revealedKeys[`site_${site.id}`] ? site.password : '••••••••'}
+                                {isCommercial ? '••••••••' : revealedKeys[`site_${site.id}`] ? site.password : '••••••••'}
                               </span>
                             </>
                           )}
@@ -752,13 +777,19 @@ export const AccessDashboard: React.FC<AccessDashboardProps> = ({
 
                       <div className="flex items-center gap-1 shrink-0">
                         {site.password && (
-                          <button
-                            onClick={() => toggleReveal(`site_${site.id}`)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:text-[#696969] dark:hover:text-white transition-colors cursor-pointer"
-                            title={revealedKeys[`site_${site.id}`] ? 'Ocultar' : 'Visualizar'}
-                          >
-                            {revealedKeys[`site_${site.id}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
+                          isCommercial ? (
+                            <span className="p-1 text-slate-400" title="Acesso restrito à equipe técnica">
+                              <Lock className="w-3.5 h-3.5" />
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => toggleReveal(`site_${site.id}`)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:text-[#696969] dark:hover:text-white transition-colors cursor-pointer"
+                              title={revealedKeys[`site_${site.id}`] ? 'Ocultar' : 'Visualizar'}
+                            >
+                              {revealedKeys[`site_${site.id}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          )
                         )}
                         {site.password && (
                           <button

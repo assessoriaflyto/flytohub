@@ -3,16 +3,84 @@
 // ============================================================================
 
 export type ActiveTab = 
-  | 'TRAFFIC'              // Gestor de Tráfego
+  | 'TRAFFIC'              // Gestor de Tráfego (apenas squad do usuário ou todos se ADMIN)
   | 'SOCIAL_MEDIA'          // Social Media & Calendário Sazonal
-  | 'COMMERCIAL'            // Comercial & CRM de Leads
-  | 'ONBOARDING'            // Onboarding
-  | 'ACCESS'                // Acessos (Briefing, CAPI, Pixels, Sites e Senhas)
+  | 'COMMERCIAL'            // Comercial & CRM de Leads (acesso geral a leads e faturamento)
+  | 'ONBOARDING'            // Onboarding (Gestor e Admin ativam; Comercial visualiza)
+  | 'ACCESS'                // Acessos (senhas mascaradas para Comercial)
   | 'ONE_OFF_SERVICES'      // Serviços Avulsos (Sites, Apps, Automações)
-  | 'INDICACOES_LOGS'       // Indicações & Logs de Auditoria
-  | 'ESTUDOS_ALINHAMENTO';  // Treinamentos, Avisos & Calls de Alinhamento
+  | 'PARTNERS'              // Parceiros & Indicações (aba dedicada)
+  | 'ANNOUNCEMENTS'         // Mural de Avisos Gerais da Assessoria (aba exclusiva)
+  | 'TRAINING'              // Estudos, Cursos & Treinamentos
+  | 'ADMIN';                // Painel de Administração (Colaboradores, Squads, Metas, Logs)
 
 export type UserRole = 'ADMIN' | 'TRAFFIC_MANAGER' | 'SOCIAL_MEDIA' | 'COMMERCIAL';
+
+export type UserStatus = 'APROVADO' | 'PENDENTE_APROVACAO' | 'SUSPENSO';
+
+export interface UserWarning {
+  id: string;
+  date: string;
+  reason: string;
+  appliedBy: string;
+}
+
+export interface UserAccount {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  role: UserRole;
+  squadId?: string;
+  status: UserStatus;
+  avatarUrl?: string;
+  phone?: string;
+  cnpj?: string;
+  contractUrl?: string; // Link do contrato do colaborador no Drive/DocuSign
+  warnings: UserWarning[];
+  instagramHandle?: string;
+  linkedinUrl?: string;
+  createdAt: string;
+}
+
+export interface Squad {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  leaderId?: string;
+  createdAt: string;
+}
+
+export type GoalTargetType = 'VENDAS' | 'ROAS' | 'RENOVACOES';
+
+export interface GoalEvent {
+  id: string;
+  title: string;
+  description: string;
+  targetType: GoalTargetType;
+  targetValue: number;
+  prize: string;
+  startDate: string;
+  endDate: string;
+  status: 'ATIVO' | 'ENCERRADO';
+  squadScores: {
+    squadId: string;
+    currentValue: number;
+  }[];
+}
+
+export type NotificationType = 'INFO' | 'WARNING' | 'SUCCESS' | 'LEAD' | 'ONBOARDING' | 'RECARGA';
+
+export interface NotificationItem {
+  id: string;
+  userId?: string;
+  title: string;
+  message: string;
+  read: boolean;
+  timestamp: string;
+  type: NotificationType;
+}
 
 export type ClientStatus = 'ATIVO' | 'PAUSADO' | 'CANCELADO' | 'ONBOARDING' | 'AVISO_PREVIO' | 'INATIVO';
 
@@ -207,6 +275,7 @@ export interface ClientData {
   name: string;
   tradeName: string;
   segment: string;
+  squadId?: string; // Vínculo com o Squad responsável
   cnpj?: string;
   city: string;
   state: string;
@@ -274,7 +343,7 @@ export interface ClientData {
 // ============================================================================
 // SISTEMA DE INDICAÇÕES (PARCEIROS, CLIENTES E COLABORADORES)
 // ============================================================================
-export type ReferralStatus = 'EM_NEGOCIACAO' | 'CONTRATO_FECHADO' | 'COMISSAO_PAGA' | 'PERDIDO';
+export type ReferralStatus = 'PENDENTE' | 'EM_NEGOCIACAO' | 'CONTRATO_FECHADO' | 'COMISSAO_PAGA' | 'PERDIDO';
 
 export interface ReferralDeal {
   id: string;
@@ -305,9 +374,11 @@ export type AuditModule =
   | 'SOCIAL_MEDIA' 
   | 'SERVICOS_AVULSOS' 
   | 'INDICACOES'
-  | 'ESTUDOS';
+  | 'ESTUDOS'
+  | 'ADMIN'
+  | 'AUTH';
 
-export type AuditActionType = 'CRIACAO' | 'EDICAO' | 'STATUS' | 'EXCLUSAO' | 'REUNIAO' | 'RECARGA';
+export type AuditActionType = 'CRIACAO' | 'EDICAO' | 'STATUS' | 'EXCLUSAO' | 'REUNIAO' | 'RECARGA' | 'LOGIN' | 'ADVERTENCIA';
 
 export interface AuditLogEntry {
   id: string;

@@ -23,13 +23,16 @@ import {
   PauseCircle,
   PlayCircle,
   XCircle,
-  CreditCard
+  CreditCard,
+  Users
 } from 'lucide-react';
-import { ClientData, ClientStatus, MetaBalanceStatus, ScheduledMeeting } from '../../types/hub';
+import { ClientData, ClientStatus, MetaBalanceStatus, ScheduledMeeting, UserAccount, Squad, PaymentMethod } from '../../types/hub';
 import { formatDateBR, formatDateTimeBR, formatBRL } from '../../utils/formatters';
 
 interface TrafficDashboardProps {
   clients: ClientData[];
+  currentUser?: UserAccount;
+  squads?: Squad[];
   selectedClientId: string | null;
   onSelectClient: (clientId: string | null) => void;
   onUpdateClientRoas: (clientId: string, newRoas: number) => void;
@@ -42,10 +45,13 @@ interface TrafficDashboardProps {
   onOpenEditDriveModal: (client: ClientData) => void;
   onOpenScheduleMeetingModal: (client: ClientData) => void;
   onSaveOptimizationNote: (clientId: string, note: string) => void;
+  onUpdatePaymentMethod?: (clientId: string, method: PaymentMethod) => void;
 }
 
 export const TrafficDashboard: React.FC<TrafficDashboardProps> = ({
   clients,
+  currentUser,
+  squads,
   selectedClientId,
   onSelectClient,
   onUpdateClientRoas,
@@ -54,8 +60,13 @@ export const TrafficDashboard: React.FC<TrafficDashboardProps> = ({
   onUpdateMetaBalanceStatus,
   onOpenEditDriveModal,
   onOpenScheduleMeetingModal,
-  onSaveOptimizationNote
+  onSaveOptimizationNote,
+  onUpdatePaymentMethod
 }) => {
+  const isTrafficManager = currentUser?.role === 'TRAFFIC_MANAGER';
+  const [selectedSquadId, setSelectedSquadId] = useState<string>(
+    isTrafficManager && currentUser?.squadId ? currentUser.squadId : 'ALL'
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'BELOW_TARGET' | 'MEETING_SCHEDULED' | 'PENDING_ROUTINE'>('ALL');
   const [contractStatusFilter, setContractStatusFilter] = useState<'ALL' | 'ATIVO' | 'PAUSADO' | 'CANCELADO'>('ALL');
@@ -75,6 +86,13 @@ export const TrafficDashboard: React.FC<TrafficDashboardProps> = ({
   // Filtragem e Ordenação da tabela
   const filteredClients = useMemo(() => {
     const list = clients.filter(c => {
+      // 0. Filtro de Squad (Gestor de Tráfego vê apenas seu squad)
+      if (isTrafficManager && currentUser?.squadId) {
+        if (c.squadId !== currentUser.squadId) return false;
+      } else if (selectedSquadId !== 'ALL') {
+        if (c.squadId !== selectedSquadId) return false;
+      }
+
       // 1. Busca textual
       const matchesSearch = 
         c.tradeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -119,7 +137,7 @@ export const TrafficDashboard: React.FC<TrafficDashboardProps> = ({
       }
       return 0;
     });
-  }, [clients, searchTerm, statusFilter, contractStatusFilter, sortBy]);
+  }, [clients, isTrafficManager, currentUser, selectedSquadId, searchTerm, statusFilter, contractStatusFilter, sortBy]);
 
   const handleRowClick = (client: ClientData) => {
     onSelectClient(client.id);
@@ -190,8 +208,34 @@ export const TrafficDashboard: React.FC<TrafficDashboardProps> = ({
             />
           </div>
 
-          {/* Ordenação por Orçamento, ROAS, Nome */}
-          <div className="flex items-center gap-2">
+          {/* Ordenação por Orçamento, ROAS, Nome & Squad Filter */}
+          <div className="flex flex-wrap items-center gap-2">
+            {squads && squads.length > 0 && !isTrafficManager && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[#121315] border border-slate-200 dark:border-[#2D3035] text-xs">
+                <Users className="w-3.5 h-3.5 text-[#277e1b] dark:text-[#00FF66]" />
+                <span className="font-bold text-slate-600 dark:text-[#A0AEC0]">Squad:</span>
+                <select
+                  value={selectedSquadId}
+                  onChange={(e) => setSelectedSquadId(e.target.value)}
+                  className="bg-transparent font-extrabold text-slate-900 dark:text-white focus:outline-hidden cursor-pointer"
+                >
+                  <option value="ALL" className="bg-white dark:bg-[#181A1D]">Todos os Squads</option>
+                  {squads.map(sq => (
+                    <option key={sq.id} value={sq.id} className="bg-white dark:bg-[#181A1D]">
+                      {sq.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {isTrafficManager && currentUser?.squadId && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 text-xs font-bold text-emerald-700 dark:text-[#00FF66]">
+                <Users className="w-3.5 h-3.5" />
+                <span>Squad: {squads?.find(s => s.id === currentUser.squadId)?.name || 'Meu Squad'}</span>
+              </div>
+            )}
+
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[#121315] border border-slate-200 dark:border-[#2D3035] text-xs">
               <ArrowUpDown className="w-3.5 h-3.5 text-[#277e1b] dark:text-[#00FF66]" />
               <span className="font-bold text-slate-600 dark:text-[#A0AEC0]">Ordenar:</span>
@@ -595,26 +639,39 @@ export const TrafficDashboard: React.FC<TrafficDashboardProps> = ({
               </div>
             </div>
 
-            {/* Forma de Pagamento e Links Rápidos */}
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#121315] border border-slate-200 dark:border-[#2D3035] flex items-center justify-between">
+            {/* Forma de Pagamento Editável e Fee da Assessoria */}
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#121315] border border-slate-200 dark:border-[#2D3035] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#277e1b]/10 dark:bg-[#00FF66]/10 flex items-center justify-center text-[#277e1b] dark:text-[#00FF66]">
+                <div className="w-8 h-8 rounded-lg bg-[#277e1b]/10 dark:bg-[#00FF66]/10 flex items-center justify-center text-[#277e1b] dark:text-[#00FF66] shrink-0">
                   <CreditCard className="w-4 h-4" />
                 </div>
                 <div>
                   <span className="text-[11px] uppercase font-bold text-slate-400 dark:text-[#696969] block">
                     Forma de Pagamento (Anúncios)
                   </span>
-                  <span className="text-xs font-extrabold text-slate-900 dark:text-white">
-                    {activeClient.paymentMethod === 'CARTAO' && 'Cartão de Crédito Corporativo'}
-                    {activeClient.paymentMethod === 'PIX' && 'PIX / Pré-Pago Direto'}
-                    {activeClient.paymentMethod === 'BOLETO' && 'Boleto Bancário / Faturado'}
-                    {activeClient.paymentMethod === 'TRANSFERENCIA' && 'Transferência Bancária'}
-                  </span>
+                  {onUpdatePaymentMethod ? (
+                    <select
+                      value={activeClient.paymentMethod}
+                      onChange={(e) => onUpdatePaymentMethod(activeClient.id, e.target.value as PaymentMethod)}
+                      className="mt-1 text-xs font-extrabold bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] rounded-lg px-2.5 py-1 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                      <option value="CARTAO">Cartão de Crédito Corporativo</option>
+                      <option value="PIX">PIX / Pré-Pago Direto</option>
+                      <option value="BOLETO">Boleto Bancário / Faturado</option>
+                      <option value="TRANSFERENCIA">Transferência Bancária</option>
+                    </select>
+                  ) : (
+                    <span className="text-xs font-extrabold text-slate-900 dark:text-white">
+                      {activeClient.paymentMethod === 'CARTAO' && 'Cartão de Crédito Corporativo'}
+                      {activeClient.paymentMethod === 'PIX' && 'PIX / Pré-Pago Direto'}
+                      {activeClient.paymentMethod === 'BOLETO' && 'Boleto Bancário / Faturado'}
+                      {activeClient.paymentMethod === 'TRANSFERENCIA' && 'Transferência Bancária'}
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 <span className="text-[10px] text-slate-400 dark:text-[#696969] block">Fee da Assessoria</span>
                 <span className="text-xs font-bold text-slate-900 dark:text-white">{formatBRL(activeClient.monthlyFee)}/mês</span>
               </div>

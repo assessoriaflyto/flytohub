@@ -5,6 +5,7 @@ import { INITIAL_CREATIVE_TASKS } from './data/mockCreativeTasks';
 import { INITIAL_ONE_OFF_SERVICES } from './data/mockOneOffServices';
 import { initialReferralDeals, initialAuditLogs } from './data/mockReferralsAndAudit';
 import { initialTeamAnnouncement, initialTeamCalls, initialStudyMaterials } from './data/mockTrainingAndAlignment';
+import { INITIAL_USERS, INITIAL_SQUADS, INITIAL_GOAL_EVENTS, INITIAL_NOTIFICATIONS } from './data/mockUsersAndSquads';
 import { 
   ActiveTab, 
   ClientData, 
@@ -26,7 +27,14 @@ import {
   TeamAnnouncement,
   TeamCall,
   TeamCallStatus,
-  StudyMaterial
+  StudyMaterial,
+  UserAccount,
+  UserRole,
+  UserWarning,
+  Squad,
+  GoalEvent,
+  NotificationItem,
+  PaymentMethod
 } from './types/hub';
 import { Sidebar } from './components/navigation/Sidebar';
 import { TrafficDashboard } from './components/dashboards/TrafficDashboard';
@@ -35,8 +43,13 @@ import { CommercialDashboard } from './components/dashboards/CommercialDashboard
 import { OnboardingDashboard } from './components/dashboards/OnboardingDashboard';
 import { AccessDashboard } from './components/dashboards/AccessDashboard';
 import { ServicesDashboard } from './components/dashboards/ServicesDashboard';
-import { AuditAndReferralsDashboard } from './components/dashboards/AuditAndReferralsDashboard';
+import { PartnersDashboard } from './components/dashboards/PartnersDashboard';
+import { AnnouncementsDashboard } from './components/dashboards/AnnouncementsDashboard';
 import { TrainingAndAlignmentDashboard } from './components/dashboards/TrainingAndAlignmentDashboard';
+import { AdminDashboard } from './components/dashboards/AdminDashboard';
+import { LoginView } from './components/auth/LoginView';
+import { UserProfileModal } from './components/modals/UserProfileModal';
+import { NotificationsModal } from './components/modals/NotificationsModal';
 import { NewLeadModal } from './components/modals/NewLeadModal';
 import { EditDriveModal } from './components/modals/EditDriveModal';
 import { ScheduleMeetingModal } from './components/modals/ScheduleMeetingModal';
@@ -52,28 +65,46 @@ export const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
 
-  // Estados dos Dados Principais
+  // Estado de Autenticação & Usuário Ativo (Padrão: Admin CEO pré-configurado)
+  const [users, setUsers] = useState<UserAccount[]>(INITIAL_USERS);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(INITIAL_USERS[0]);
+  const [squads, setSquads] = useState<Squad[]>(INITIAL_SQUADS);
+  const [goalEvents, setGoalEvents] = useState<GoalEvent[]>(INITIAL_GOAL_EVENTS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+
+  // Estados dos Dados Operacionais
   const [clients, setClients] = useState<ClientData[]>(INITIAL_CLIENTS);
   const [leads, setLeads] = useState<CommercialLead[]>(INITIAL_LEADS);
   const [creativeTasks, setCreativeTasks] = useState<CreativeTask[]>(INITIAL_CREATIVE_TASKS);
   const [services, setServices] = useState<OneOffService[]>(INITIAL_ONE_OFF_SERVICES);
-  
-  // Novos Módulos: Indicações & Logs, Estudos & Alinhamento
   const [referrals, setReferrals] = useState<ReferralDeal[]>(initialReferralDeals);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(initialAuditLogs);
-  const [teamAnnouncement, setTeamAnnouncement] = useState<TeamAnnouncement>(initialTeamAnnouncement);
+  const [announcements, setAnnouncements] = useState<TeamAnnouncement[]>([
+    initialTeamAnnouncement,
+    {
+      id: 'ann_2',
+      title: 'Procedimento Operacional Padrão (POP) - Relatórios de Terça-Feira',
+      message: 'Lembrando toda a equipe de performance: os relatórios semanais devem ser enviados aos clientes pontualmente às terças-feiras até às 14h, com comparativo de ROAS e CPA.',
+      author: 'CEO Assessoria Flyto',
+      authorRole: 'CEO & Diretoria',
+      priority: 'IMPORTANTE',
+      publishedAt: '10:00 - 18/09/2026'
+    }
+  ]);
   const [teamCalls, setTeamCalls] = useState<TeamCall[]>(initialTeamCalls);
   const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>(initialStudyMaterials);
 
+  // Navegação
   const [activeTab, setActiveTab] = useState<ActiveTab>('TRAFFIC');
   const [selectedClientId, setSelectedClientId] = useState<string | null>(INITIAL_CLIENTS[0]?.id || null);
 
   // Modais
+  const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
+  const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [isNewServiceModalOpen, setIsNewServiceModalOpen] = useState(false);
   const [isEditDriveModalOpen, setIsEditDriveModalOpen] = useState(false);
   const [editingDriveClient, setEditingDriveClient] = useState<ClientData | null>(null);
-
   const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
   const [meetingClient, setMeetingClient] = useState<ClientData | null>(null);
 
@@ -96,6 +127,13 @@ export const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
+  // Se o usuário não tiver permissão para ADMIN e estiver na aba ADMIN, redireciona
+  useEffect(() => {
+    if (activeTab === 'ADMIN' && currentUser?.role !== 'ADMIN') {
+      setActiveTab('TRAFFIC');
+    }
+  }, [currentUser, activeTab]);
+
   // --------------------------------------------------------------------------
   // HELPER: REGISTRO DE AUDITORIA AUTOMÁTICA
   // --------------------------------------------------------------------------
@@ -115,8 +153,8 @@ export const App: React.FC = () => {
       id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       timestamp,
       rawDate: now.toISOString().split('T')[0],
-      authorName: 'Lucas Mendonça',
-      authorRole: 'Gestor de Performance',
+      authorName: currentUser ? currentUser.name : 'Sistema Flyto',
+      authorRole: currentUser ? (currentUser.role === 'ADMIN' ? 'CEO & Diretoria' : currentUser.role) : 'FlytoHUB',
       module,
       actionType,
       entityName,
@@ -128,6 +166,178 @@ export const App: React.FC = () => {
   };
 
   // --------------------------------------------------------------------------
+  // HANDLERS: AUTENTICAÇÃO, USUÁRIOS & PERFIL
+  // --------------------------------------------------------------------------
+  const handleLoginSuccess = (user: UserAccount) => {
+    setCurrentUser(user);
+    recordAudit('AUTH', 'LOGIN', user.name, `Usuário realizou login no sistema.`);
+  };
+
+  const handleLogout = () => {
+    if (currentUser) {
+      recordAudit('AUTH', 'LOGIN', currentUser.name, `Usuário encerrou sessão.`);
+    }
+    setCurrentUser(null);
+    setIsUserProfileModalOpen(false);
+  };
+
+  const handleRegisterPendingUser = (data: {
+    name: string;
+    email: string;
+    password: string;
+    phone: string;
+    cnpj?: string;
+    role: UserRole;
+    contractUrl?: string;
+  }) => {
+    const newUser: UserAccount = {
+      id: `usr_${Date.now()}`,
+      name: data.name.trim(),
+      email: data.email.trim(),
+      password: data.password,
+      role: data.role,
+      status: 'PENDENTE_APROVACAO',
+      phone: data.phone.trim(),
+      cnpj: data.cnpj?.trim(),
+      contractUrl: data.contractUrl?.trim(),
+      warnings: [],
+      createdAt: new Date().toLocaleDateString('pt-BR')
+    };
+
+    setUsers(prev => [newUser, ...prev]);
+
+    // Notificação para o Admin
+    const notif: NotificationItem = {
+      id: `notif_${Date.now()}`,
+      title: 'Novo Colaborador Aguardando Aprovação',
+      message: `${newUser.name} se cadastrou como ${newUser.role}. Acesse o Painel Admin para aprovar e vincular ao Squad.`,
+      read: false,
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' - ' + new Date().toLocaleDateString('pt-BR'),
+      type: 'INFO'
+    };
+    setNotifications(prev => [notif, ...prev]);
+
+    recordAudit('AUTH', 'CRIACAO', newUser.name, `Solicitou cadastro como colaborador. Status: Aguardando aprovação.`);
+  };
+
+  const handleApproveUser = (userId: string, role: UserRole, squadId?: string) => {
+    setUsers(prev =>
+      prev.map(u => {
+        if (u.id === userId) {
+          recordAudit('ADMIN', 'STATUS', u.name, `Aprovou o colaborador com cargo ${role} ${squadId ? `e squad ${squadId}` : ''}`);
+          return { ...u, status: 'APROVADO', role, squadId };
+        }
+        return u;
+      })
+    );
+  };
+
+  const handleRejectUser = (userId: string) => {
+    const userToReject = users.find(u => u.id === userId);
+    if (userToReject) {
+      recordAudit('ADMIN', 'EXCLUSAO', userToReject.name, `Rejeitou a solicitação de cadastro do colaborador.`);
+    }
+    setUsers(prev => prev.filter(u => u.id !== userId));
+  };
+
+  const handleUpdateUserSquadAndRole = (userId: string, role: UserRole, squadId?: string) => {
+    setUsers(prev =>
+      prev.map(u => {
+        if (u.id === userId) {
+          recordAudit('ADMIN', 'EDICAO', u.name, `Atualizou cargo para ${role} e squad para ${squadId || 'Geral'}`);
+          const updated = { ...u, role, squadId };
+          if (currentUser?.id === userId) {
+            setCurrentUser(updated);
+          }
+          return updated;
+        }
+        return u;
+      })
+    );
+  };
+
+  const handleApplyWarning = (userId: string, reason: string) => {
+    const newWarning: UserWarning = {
+      id: `warn_${Date.now()}`,
+      date: new Date().toLocaleDateString('pt-BR'),
+      reason,
+      appliedBy: currentUser ? currentUser.name : 'Diretoria Flyto'
+    };
+
+    setUsers(prev =>
+      prev.map(u => {
+        if (u.id === userId) {
+          recordAudit('ADMIN', 'ADVERTENCIA', u.name, `Aplicou advertência formal: ${reason}`);
+          return { ...u, warnings: [...u.warnings, newWarning] };
+        }
+        return u;
+      })
+    );
+  };
+
+  const handleToggleUserSuspension = (userId: string) => {
+    setUsers(prev =>
+      prev.map(u => {
+        if (u.id === userId) {
+          const nextStatus = u.status === 'SUSPENSO' ? 'APROVADO' : 'SUSPENSO';
+          recordAudit('ADMIN', 'STATUS', u.name, `Alterou status do colaborador para ${nextStatus}`);
+          return { ...u, status: nextStatus };
+        }
+        return u;
+      })
+    );
+  };
+
+  const handleCreateSquad = (newSquad: Omit<Squad, 'id' | 'createdAt'>) => {
+    const created: Squad = {
+      ...newSquad,
+      id: `squad_${Date.now()}`,
+      createdAt: new Date().toLocaleDateString('pt-BR')
+    };
+    setSquads(prev => [...prev, created]);
+    recordAudit('ADMIN', 'CRIACAO', created.name, `Criou novo squad de trabalho na assessoria.`);
+  };
+
+  const handleCreateGoalEvent = (newEvent: Omit<GoalEvent, 'id' | 'status'>) => {
+    const created: GoalEvent = {
+      ...newEvent,
+      id: `goal_${Date.now()}`,
+      status: 'ATIVO'
+    };
+    setGoalEvents(prev => [created, ...prev]);
+    recordAudit('ADMIN', 'CRIACAO', created.title, `Criou novo evento de competição de metas.`);
+  };
+
+  const handleUpdateUserProfile = (updatedUser: Partial<UserAccount>) => {
+    if (!currentUser) return;
+    const merged = { ...currentUser, ...updatedUser };
+    setCurrentUser(merged);
+    setUsers(prev => prev.map(u => u.id === merged.id ? merged : u));
+    recordAudit('ADMIN', 'EDICAO', merged.name, 'Atualizou informações cadastrais e redes sociais no perfil.');
+  };
+
+  // --------------------------------------------------------------------------
+  // HANDLERS: NOTIFICAÇÕES
+  // --------------------------------------------------------------------------
+  const unreadNotificationsCount = notifications.filter(n => !n.read).length;
+
+  const handleMarkAllNotificationsAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const handleMarkNotificationAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const handleDeleteNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const handleClearNotifications = () => {
+    setNotifications([]);
+  };
+
+  // --------------------------------------------------------------------------
   // HANDLERS: GESTOR DE TRÁFEGO & PERFORMANCE
   // --------------------------------------------------------------------------
   const handleUpdateClientRoas = (clientId: string, newRoas: number) => {
@@ -136,6 +346,18 @@ export const App: React.FC = () => {
         if (c.id === clientId) {
           recordAudit('GESTOR', 'EDICAO', c.tradeName, `Atualizou o ROAS para ${newRoas.toFixed(2)}x.`);
           return { ...c, currentRoas: newRoas };
+        }
+        return c;
+      })
+    );
+  };
+
+  const handleUpdatePaymentMethod = (clientId: string, method: PaymentMethod) => {
+    setClients(prev =>
+      prev.map(c => {
+        if (c.id === clientId) {
+          recordAudit('GESTOR', 'EDICAO', c.tradeName, `Forma de pagamento de anúncios alterada para: ${method}`);
+          return { ...c, paymentMethod: method };
         }
         return c;
       })
@@ -187,7 +409,7 @@ export const App: React.FC = () => {
             id: `log_opt_${Date.now()}`,
             date: today,
             time: timeNow,
-            author: 'Lucas Mendonça',
+            author: currentUser ? currentUser.name : 'Gestor Flyto',
             note: note.trim(),
             roasAtTime: c.currentRoas,
             adSpendAtTime: c.monthlyAdSpend,
@@ -206,7 +428,7 @@ export const App: React.FC = () => {
             id: `log_check_${Date.now()}`,
             date: today,
             time: timeNow,
-            author: 'Lucas Mendonça',
+            author: currentUser ? currentUser.name : 'Gestor Flyto',
             note: logLabels[checkKey] || `Rotina [${checkKey}] marcada como concluída`,
             type: 'CHECK_ROTINA'
           };
@@ -246,7 +468,7 @@ export const App: React.FC = () => {
           id: `log_bal_${Date.now()}`,
           date: today,
           time: timeNow,
-          author: 'Lucas Mendonça',
+          author: currentUser ? currentUser.name : 'Gestor Flyto',
           note: `Saldo Meta alterado para: ${status}${rechargeAmount ? ` (Recarga de R$ ${rechargeAmount.toLocaleString('pt-BR')})` : ''}`,
           type: 'RECARGA'
         };
@@ -274,7 +496,7 @@ export const App: React.FC = () => {
           id: `log_man_${Date.now()}`,
           date: today,
           time: timeNow,
-          author: 'Lucas Mendonça',
+          author: currentUser ? currentUser.name : 'Gestor Flyto',
           note: note.trim(),
           roasAtTime: c.currentRoas,
           adSpendAtTime: c.monthlyAdSpend,
@@ -312,7 +534,7 @@ export const App: React.FC = () => {
           id: `log_meet_${Date.now()}`,
           date: today,
           time: timeNow,
-          author: 'Lucas Mendonça',
+          author: currentUser ? currentUser.name : 'Gestor Flyto',
           note: `Reunião agendada para ${formatDateTimeBR(meeting.date)}: "${meeting.reason}". Link: ${meeting.meetUrl}`,
           type: 'REUNIAO'
         };
@@ -340,7 +562,7 @@ export const App: React.FC = () => {
           id: `log_meet_cancel_${Date.now()}`,
           date: today,
           time: timeNow,
-          author: 'Lucas Mendonça',
+          author: currentUser ? currentUser.name : 'Gestor Flyto',
           note: `Reunião agendada foi desmarcada ou concluída.`,
           type: 'REUNIAO'
         };
@@ -446,13 +668,23 @@ export const App: React.FC = () => {
   };
 
   // --------------------------------------------------------------------------
-  // HANDLERS: COMERCIAL & LEADS (FLUXO ÚNICO DE CRIAÇÃO!)
+  // HANDLERS: COMERCIAL & LEADS
   // --------------------------------------------------------------------------
+  const handleAddLead = (newLead: Omit<CommercialLead, 'id' | 'createdAt'>) => {
+    const created: CommercialLead = {
+      ...newLead,
+      id: `lead_${Date.now()}`,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    setLeads(prev => [created, ...prev]);
+    recordAudit('COMERCIAL', 'CRIACAO', created.companyName, `Cadastrou nova oportunidade no CRM. Fee proposto: R$ ${(created.proposedFee || 0).toLocaleString('pt-BR')}/mês`);
+  };
+
   const handleUpdateLeadStatus = (leadId: string, newStatus: LeadStatus) => {
     setLeads(prev =>
       prev.map(l => {
         if (l.id === leadId) {
-          recordAudit('COMERCIAL', 'STATUS', l.companyName, `Avançou etapa do funil para: ${newStatus}`);
+          recordAudit('COMERCIAL', 'STATUS', l.companyName, `Avançou o lead para a etapa: ${newStatus}`);
           return { ...l, status: newStatus };
         }
         return l;
@@ -460,43 +692,49 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleAddLead = (newLead: CommercialLead) => {
-    setLeads(prev => [newLead, ...prev]);
-    recordAudit('COMERCIAL', 'CRIACAO', newLead.companyName, `Cadastrou nova oportunidade no CRM: ${newLead.companyName} (${newLead.segment}). Contato: ${newLead.contactName}`);
-  };
-
   const handleConvertLeadToClient = (lead: CommercialLead) => {
-    const clientId = `cli_${Date.now()}`;
-    const todayStr = new Date().toISOString().split('T')[0];
-    const contractEndStr = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const defaultDriveUrl = `https://drive.google.com/drive/folders/${lead.companyName.toLowerCase().replace(/\s+/g, '-')}-oficial`;
+    
+    // Aloca em squad do usuário ou no squad alpha
+    const defaultSquadId = currentUser?.squadId || squads[0]?.id || 'squad_alpha';
 
     const newClient: ClientData = {
-      id: clientId,
+      id: `cli_${Date.now()}`,
       name: lead.companyName,
       tradeName: lead.companyName,
       segment: lead.segment,
-      city: 'Brasília',
+      squadId: defaultSquadId,
+      cnpj: 'Pendente no contrato',
+      city: 'A definir',
       state: 'DF',
       owners: lead.contactName,
       phone: lead.whatsapp,
-      email: lead.email,
-      driveFolderUrl: `https://drive.google.com/drive/folders/Flyto-${lead.companyName.replace(/\s+/g, '')}`,
-      plan: 'GROWTH',
+      email: lead.email || '',
+      driveFolderUrl: defaultDriveUrl,
+      plan: 'ESSENTIAL',
       monthlyFee: lead.proposedFee || 2500,
       billingCycle: 'MENSAL',
       paymentMethod: 'PIX',
-      contractStartDate: todayStr,
-      contractEndDate: contractEndStr,
-      budgetMonthly: lead.estimatedBudget || 10000,
+      contractStartDate: new Date().toISOString().split('T')[0],
+      contractEndDate: '2027-12-31',
+      budgetMonthly: lead.estimatedBudget || 3000,
       monthlyAdSpend: 0,
       revenueGenerated: 0,
-      currentRoas: 0.0,
-      targetRoas: 4.5,
+      currentRoas: 0,
+      targetRoas: 3.5,
+      ctrAverage: 1.8,
+      cpcAverage: 2.10,
+      cpmAverage: 28.50,
+      frequencyAverage: 1.25,
+      funnelConversionRate: 3.8,
+      activeCreativesCount: 4,
+      relationshipHealth: 'BOA',
+      ltvTotal: lead.proposedFee || 2500,
       metaBalance: {
         status: 'VERIFICAR',
         lastRechargeAmount: 0,
-        lastRechargeDate: todayStr,
-        lastVerifiedDate: todayStr
+        lastRechargeDate: new Date().toISOString().split('T')[0],
+        lastVerifiedDate: new Date().toISOString().split('T')[0]
       },
       routine: {
         weeklyReportSent: false,
@@ -504,74 +742,61 @@ export const App: React.FC = () => {
         videoBriefingDone: false,
         videoEditedDone: false,
         creativeUploadedDone: false,
-        lastResetDate: todayStr
+        lastResetDate: new Date().toISOString().split('T')[0]
       },
       optimizationLogs: [
         {
           id: `log_init_${Date.now()}`,
-          date: todayStr,
-          time: '12:00',
-          author: 'Comercial Flyto',
-          note: `Lead convertido em cliente pelo Comercial (${lead.notes || 'Início da assessoria'}).`,
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          author: currentUser ? currentUser.name : 'Equipe Flyto',
+          note: 'Contrato fechado pelo Comercial! Cliente criado e adicionado à esteira de Onboarding.',
           type: 'OTIMIZACAO'
         }
       ],
-      lastOptimizationNote: `Lead convertido em cliente pelo Comercial (${lead.notes || 'Início da assessoria'}).`,
-      ctrAverage: 2.0,
-      cpcAverage: 2.5,
-      cpmAverage: 30.0,
-      frequencyAverage: 1.0,
-      funnelConversionRate: 6.0,
-      activeCreativesCount: 0,
-      status: 'ONBOARDING',
-      relationshipHealth: 'EXCELENTE',
-      ltvTotal: lead.proposedFee || 2500,
-      kickoffDate: todayStr,
-      onboardingSteps: [
-        { id: 'step_1', label: 'Contrato de Assessoria Assinado', done: true, completedAt: todayStr },
-        { id: 'step_2', label: 'Acesso de Parceiro ao Meta Business Manager', done: false },
-        { id: 'step_3', label: 'Vinculação de Conta Google Ads & GA4', done: false },
-        { id: 'step_4', label: 'Briefing Estratégico & ICP Respondido', done: false },
-        { id: 'step_5', label: 'Pasta Compartilhada no Google Drive', done: true, completedAt: todayStr },
-        { id: 'step_6', label: 'Reunião de Kick-off & Definição de Metas', done: false },
-        { id: 'step_7', label: 'Subida da Primeira Campanha de Escala', done: false }
-      ],
       accessVault: {
-        id: `vault_${clientId}`,
-        clientId,
-        driveFolderUrl: `https://drive.google.com/drive/folders/Flyto-${lead.companyName.replace(/\s+/g, '')}`,
-        briefingText: lead.notes || '',
-        whatsappNumber: lead.whatsapp,
+        id: `vault_${Date.now()}`,
+        clientId: `cli_${Date.now()}`,
+        driveFolderUrl: defaultDriveUrl,
+        briefingText: lead.notes || 'Cliente convertido do Comercial.',
         extraSites: [],
-        lastUpdated: todayStr
-      }
+        lastUpdated: new Date().toISOString().split('T')[0]
+      },
+      status: 'ONBOARDING',
+      onboardingSteps: [
+        { id: 'step_1', label: 'Criação do Grupo no WhatsApp & Alinhamento', done: true },
+        { id: 'step_2', label: 'Pasta Google Drive criada e organizada', done: true },
+        { id: 'step_3', label: 'Coleta de acessos Meta BM e Contas', done: false },
+        { id: 'step_4', label: 'Validação de Pixel e API de Conversões (CAPI)', done: false },
+        { id: 'step_5', label: 'Briefing inicial dos primeiros criativos', done: false },
+        { id: 'step_6', label: 'Subida e ativação das primeiras campanhas', done: false }
+      ]
     };
 
     setClients(prev => [newClient, ...prev]);
-    handleUpdateLeadStatus(lead.id, 'FECHADO');
-    recordAudit('COMERCIAL', 'STATUS', lead.companyName, `Contrato fechado com sucesso! Iniciado Onboarding Técnico de Implantação.`);
+
+    setLeads(prev =>
+      prev.map(l => l.id === lead.id ? { ...l, status: 'FECHADO' } : l)
+    );
+
+    recordAudit('COMERCIAL', 'STATUS', lead.companyName, 'Contrato fechado com sucesso! Cliente gerado e movido para Onboarding.');
+
     setActiveTab('ONBOARDING');
   };
 
   // --------------------------------------------------------------------------
-  // HANDLERS: ONBOARDING & CLIENTES
+  // HANDLERS: ONBOARDING TÉCNICO
   // --------------------------------------------------------------------------
   const handleToggleOnboardingStep = (clientId: string, stepId: string) => {
-    const today = new Date().toISOString().split('T')[0];
     setClients(prev =>
       prev.map(c => {
         if (c.id !== clientId) return c;
-        const steps = c.onboardingSteps.map(s => {
-          if (s.id !== stepId) return s;
-          const nextDone = !s.done;
-          recordAudit('ONBOARDING', 'EDICAO', c.tradeName, `${nextDone ? 'Concluiu' : 'Desmarcou'} etapa de onboarding: "${s.label}"`);
-          return {
-            ...s,
-            done: nextDone,
-            completedAt: nextDone ? today : undefined
-          };
-        });
-        return { ...c, onboardingSteps: steps };
+        const updatedSteps = (c.onboardingSteps || []).map(s =>
+          s.id === stepId ? { ...s, done: !s.done } : s
+        );
+        const toggledStep = updatedSteps.find(s => s.id === stepId);
+        recordAudit('ONBOARDING', 'EDICAO', c.tradeName, `Marcou etapa [${toggledStep?.label}] como ${toggledStep?.done ? 'CONCLUÍDA' : 'PENDENTE'}`);
+        return { ...c, onboardingSteps: updatedSteps };
       })
     );
   };
@@ -579,16 +804,17 @@ export const App: React.FC = () => {
   const handleActivateClient = (clientId: string) => {
     setClients(prev =>
       prev.map(c => {
-        if (c.id === clientId) {
-          recordAudit('ONBOARDING', 'STATUS', c.tradeName, 'Onboarding concluído! Cliente movido oficialmente para ATIVO no Gestor de Tráfego.');
-          return { ...c, status: 'ATIVO' };
-        }
-        return c;
+        if (c.id !== clientId) return c;
+        recordAudit('ONBOARDING', 'STATUS', c.tradeName, 'Concluiu a implantação técnica! Cliente ativado no painel do Gestor de Tráfego.');
+        return { ...c, status: 'ATIVO' };
       })
     );
     setActiveTab('TRAFFIC');
   };
 
+  // --------------------------------------------------------------------------
+  // HANDLERS: MODAL DRIVE
+  // --------------------------------------------------------------------------
   const handleOpenEditDriveModal = (client: ClientData) => {
     setEditingDriveClient(client);
     setIsEditDriveModalOpen(true);
@@ -607,7 +833,7 @@ export const App: React.FC = () => {
   };
 
   // --------------------------------------------------------------------------
-  // HANDLERS: INDICAÇÕES & AUDITORIA
+  // HANDLERS: PARCEIROS & INDICAÇÕES
   // --------------------------------------------------------------------------
   const handleAddReferral = (deal: Omit<ReferralDeal, 'id'>) => {
     const created: ReferralDeal = {
@@ -631,20 +857,47 @@ export const App: React.FC = () => {
   };
 
   // --------------------------------------------------------------------------
-  // HANDLERS: ESTUDOS & ALINHAMENTO DE EQUIPE
+  // HANDLERS: AVISOS GERAIS DA ASSESSORIA
   // --------------------------------------------------------------------------
-  const handleUpdateAnnouncement = (updated: TeamAnnouncement) => {
-    setTeamAnnouncement(updated);
-    recordAudit('ESTUDOS', 'EDICAO', 'Mural de Avisos', `Atualizou o comunicado geral: "${updated.title}"`);
+  const handleAddAnnouncement = (item: Omit<TeamAnnouncement, 'id'>) => {
+    const created: TeamAnnouncement = {
+      ...item,
+      id: `ann_${Date.now()}`
+    };
+    setAnnouncements(prev => [created, ...prev]);
+    recordAudit('ADMIN', 'CRIACAO', created.title, `Publicou novo comunicado oficial no mural da assessoria.`);
+
+    // Cria notificação interna para a equipe
+    const notif: NotificationItem = {
+      id: `notif_${Date.now()}`,
+      title: `Novo Comunicado: ${created.title}`,
+      message: created.message.slice(0, 100) + '...',
+      read: false,
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' - ' + new Date().toLocaleDateString('pt-BR'),
+      type: created.priority === 'URGENTE' ? 'WARNING' : 'INFO'
+    };
+    setNotifications(prev => [notif, ...prev]);
   };
 
+  const handleUpdateAnnouncement = (updated: TeamAnnouncement) => {
+    setAnnouncements(prev => prev.map(a => a.id === updated.id ? updated : a));
+    recordAudit('ADMIN', 'EDICAO', updated.title, `Atualizou comunicado no mural da assessoria.`);
+  };
+
+  const handleDeleteAnnouncement = (id: string) => {
+    setAnnouncements(prev => prev.filter(a => a.id !== id));
+  };
+
+  // --------------------------------------------------------------------------
+  // HANDLERS: ESTUDOS & TREINAMENTOS
+  // --------------------------------------------------------------------------
   const handleAddTeamCall = (call: Omit<TeamCall, 'id'>) => {
     const created: TeamCall = {
       ...call,
       id: `call_${Date.now()}`
     };
     setTeamCalls(prev => [created, ...prev]);
-    recordAudit('ESTUDOS', 'REUNIAO', created.title, `Agendou call de equipe pelo Google Meet para ${formatDateTimeBR(created.date)}`);
+    recordAudit('ESTUDOS', 'REUNIAO', created.title, `Agendou call de alinhamento para ${formatDateTimeBR(created.date)}`);
   };
 
   const handleUpdateCallStatus = (id: string, status: TeamCallStatus) => {
@@ -665,9 +918,27 @@ export const App: React.FC = () => {
       id: `mat_${Date.now()}`
     };
     setStudyMaterials(prev => [created, ...prev]);
-    recordAudit('ESTUDOS', 'CRIACAO', created.title, `Adicionou novo material de estudo no acervo da Flyto.`);
+    recordAudit('ESTUDOS', 'CRIACAO', created.title, `Adicionou novo material de estudo no acervo Flyto.`);
   };
 
+  // ==========================================================================
+  // SE NÃO HOUVER USUÁRIO LOGADO, EXIBE A TELA DE LOGIN & CADASTRO
+  // ==========================================================================
+  if (!currentUser) {
+    return (
+      <LoginView
+        users={users}
+        onLoginSuccess={handleLoginSuccess}
+        onRegisterPendingUser={handleRegisterPendingUser}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={() => setIsDarkMode(prev => !prev)}
+      />
+    );
+  }
+
+  // ==========================================================================
+  // INTERFACE PRINCIPAL FLYTOHUB
+  // ==========================================================================
   return (
     <div className="min-h-screen bg-[#FFFFFF] dark:bg-[#0F1012] text-[#0F1715] dark:text-white flex flex-col font-sans transition-colors duration-200 relative overflow-x-hidden">
       
@@ -691,7 +962,7 @@ export const App: React.FC = () => {
       {/* 2. GRID QUADRICULADO IDÊNTICO AO SITE DA FLYTO */}
       <div className="fixed inset-0 bg-ambient-grid pointer-events-none z-0" />
 
-      {/* 3. MARCA D'ÁGUA VERDE PURA CENTRALIZADA (SEM ROXO/ROSA!) */}
+      {/* 3. MARCA D'ÁGUA VERDE PURA CENTRALIZADA */}
       <div className="fixed inset-0 bg-watermark-logo-center pointer-events-none z-0" />
 
       {/* Header Superior Mobile */}
@@ -723,16 +994,21 @@ export const App: React.FC = () => {
       {/* Container Geral: Sidebar à Esquerda + Conteúdo Principal */}
       <div className="flex-1 flex min-h-screen relative z-10">
         
-        {/* Sidebar Lateral (Com novo botão único de lead e novas categorias) */}
+        {/* Sidebar Lateral */}
         <Sidebar
           activeTab={activeTab}
           onTabChange={setActiveTab}
+          currentUser={currentUser}
+          unreadNotificationsCount={unreadNotificationsCount}
+          onOpenNotifications={() => setIsNotificationsModalOpen(true)}
+          onOpenUserProfile={() => setIsUserProfileModalOpen(true)}
           isDarkMode={isDarkMode}
           onToggleDarkMode={() => setIsDarkMode(prev => !prev)}
           clients={clients}
           leads={leads}
           creativeTasks={creativeTasks}
           services={services}
+          announcementsCount={announcements.length}
           onOpenNewLeadModal={() => setIsNewLeadModalOpen(true)}
           isMobileOpen={isMobileOpen}
           setIsMobileOpen={setIsMobileOpen}
@@ -746,6 +1022,8 @@ export const App: React.FC = () => {
             {activeTab === 'TRAFFIC' && (
               <TrafficDashboard
                 clients={clients}
+                currentUser={currentUser}
+                squads={squads}
                 selectedClientId={selectedClientId}
                 onSelectClient={setSelectedClientId}
                 onUpdateClientRoas={handleUpdateClientRoas}
@@ -755,6 +1033,7 @@ export const App: React.FC = () => {
                 onOpenEditDriveModal={handleOpenEditDriveModal}
                 onOpenScheduleMeetingModal={handleOpenScheduleMeetingModal}
                 onSaveOptimizationNote={handleSaveOptimizationLog}
+                onUpdatePaymentMethod={handleUpdatePaymentMethod}
               />
             )}
 
@@ -772,6 +1051,7 @@ export const App: React.FC = () => {
             {activeTab === 'COMMERCIAL' && (
               <CommercialDashboard
                 leads={leads}
+                currentUser={currentUser}
                 onUpdateLeadStatus={handleUpdateLeadStatus}
                 onOpenNewLeadModal={() => setIsNewLeadModalOpen(true)}
                 onConvertLeadToClient={handleConvertLeadToClient}
@@ -781,6 +1061,7 @@ export const App: React.FC = () => {
             {activeTab === 'ONBOARDING' && (
               <OnboardingDashboard
                 clients={clients}
+                currentUser={currentUser}
                 onToggleStep={handleToggleOnboardingStep}
                 onActivateClient={handleActivateClient}
                 onOpenEditDriveModal={handleOpenEditDriveModal}
@@ -790,6 +1071,7 @@ export const App: React.FC = () => {
             {activeTab === 'ACCESS' && (
               <AccessDashboard
                 clients={clients}
+                currentUser={currentUser}
                 onOpenEditDriveModal={handleOpenEditDriveModal}
                 onUpdateClientVault={handleUpdateClientVault}
               />
@@ -805,24 +1087,51 @@ export const App: React.FC = () => {
               />
             )}
 
-            {activeTab === 'INDICACOES_LOGS' && (
-              <AuditAndReferralsDashboard
+            {activeTab === 'PARTNERS' && (
+              <PartnersDashboard
                 referrals={referrals}
-                auditLogs={auditLogs}
+                currentUser={currentUser}
                 onAddReferral={handleAddReferral}
                 onUpdateReferralStatus={handleUpdateReferralStatus}
               />
             )}
 
-            {activeTab === 'ESTUDOS_ALINHAMENTO' && (
+            {activeTab === 'ANNOUNCEMENTS' && (
+              <AnnouncementsDashboard
+                announcements={announcements}
+                currentUser={currentUser}
+                onAddAnnouncement={handleAddAnnouncement}
+                onUpdateAnnouncement={handleUpdateAnnouncement}
+                onDeleteAnnouncement={handleDeleteAnnouncement}
+              />
+            )}
+
+            {activeTab === 'TRAINING' && (
               <TrainingAndAlignmentDashboard
-                announcement={teamAnnouncement}
+                announcement={announcements[0] || initialTeamAnnouncement}
                 teamCalls={teamCalls}
                 studyMaterials={studyMaterials}
                 onUpdateAnnouncement={handleUpdateAnnouncement}
                 onAddTeamCall={handleAddTeamCall}
                 onUpdateCallStatus={handleUpdateCallStatus}
                 onAddStudyMaterial={handleAddStudyMaterial}
+              />
+            )}
+
+            {activeTab === 'ADMIN' && currentUser.role === 'ADMIN' && (
+              <AdminDashboard
+                currentUser={currentUser}
+                users={users}
+                squads={squads}
+                goalEvents={goalEvents}
+                auditLogs={auditLogs}
+                onApproveUser={handleApproveUser}
+                onRejectUser={handleRejectUser}
+                onUpdateUserSquadAndRole={handleUpdateUserSquadAndRole}
+                onApplyWarning={handleApplyWarning}
+                onToggleUserSuspension={handleToggleUserSuspension}
+                onCreateSquad={handleCreateSquad}
+                onCreateGoalEvent={handleCreateGoalEvent}
               />
             )}
 
@@ -846,7 +1155,26 @@ export const App: React.FC = () => {
 
       </div>
 
-      {/* Modais do Sistema (Sem modal avulso de cliente, apenas Lead, Drive, Reunião e Serviço) */}
+      {/* Modais do Sistema */}
+      <UserProfileModal
+        isOpen={isUserProfileModalOpen}
+        user={currentUser}
+        squads={squads}
+        onClose={() => setIsUserProfileModalOpen(false)}
+        onUpdateProfile={handleUpdateUserProfile}
+        onLogout={handleLogout}
+      />
+
+      <NotificationsModal
+        isOpen={isNotificationsModalOpen}
+        notifications={notifications}
+        onClose={() => setIsNotificationsModalOpen(false)}
+        onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+        onMarkAsRead={handleMarkNotificationAsRead}
+        onDeleteNotification={handleDeleteNotification}
+        onClearAll={handleClearNotifications}
+      />
+
       <NewLeadModal
         isOpen={isNewLeadModalOpen}
         onClose={() => setIsNewLeadModalOpen(false)}
