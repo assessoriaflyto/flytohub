@@ -242,73 +242,78 @@ export const TrainingAndAlignmentDashboard: React.FC<TrainingAndAlignmentDashboa
           <span className="text-xs text-slate-500 dark:text-[#696969]">{teamCalls.length} reuniões registradas</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {teamCalls.map((call) => (
-            <div 
-              key={call.id}
-              className="p-4 rounded-2xl bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] space-y-3 shadow-xs"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="text-xs font-black text-slate-900 dark:text-white block">
-                    {call.title}
-                  </span>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-[#8E959E] mt-1">
-                    <span className="font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {/* Horário - Data */}
-                      {formatDateTimeBR(call.date)}
+        {teamCalls.length === 0 ? (
+          <div className="p-8 text-center bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] rounded-2xl text-xs text-slate-400">
+            Nenhuma reunião ou call interna agendada no momento. Clique em "Agendar Call de Equipe" acima para marcar um alinhamento.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {teamCalls.map((call) => (
+              <div 
+                key={call.id}
+                className="p-4 rounded-2xl bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] space-y-3 shadow-xs"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-black text-slate-900 dark:text-white block">
+                      {call.title}
                     </span>
-                    <span>&middot;</span>
-                    <span>Host: {call.hostName}</span>
+                    <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-[#8E959E] mt-1">
+                      <span className="font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatDateTimeBR(call.date)}
+                      </span>
+                      <span>&middot;</span>
+                      <span>Host: {call.hostName}</span>
+                    </div>
                   </div>
+
+                  <select
+                    value={call.status}
+                    onChange={(e) => onUpdateCallStatus(call.id, e.target.value as TeamCallStatus)}
+                    className={`text-[10px] font-bold rounded-lg px-2 py-0.5 border cursor-pointer focus:outline-hidden ${
+                      call.status === 'AGENDADA'
+                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800/40'
+                        : call.status === 'EM_ANDAMENTO'
+                        ? 'bg-emerald-50 text-[#277e1b] dark:bg-emerald-950/40 dark:text-[#00FF66] border-emerald-300 dark:border-emerald-800/40'
+                        : 'bg-slate-100 text-slate-600 dark:bg-[#1F2124] dark:text-[#8E959E] border-slate-200 dark:border-[#2D3035]'
+                    }`}
+                  >
+                    <option value="AGENDADA">Agendada</option>
+                    <option value="EM_ANDAMENTO">Ao Vivo</option>
+                    <option value="CONCLUIDA">Concluída</option>
+                  </select>
                 </div>
 
-                <select
-                  value={call.status}
-                  onChange={(e) => onUpdateCallStatus(call.id, e.target.value as TeamCallStatus)}
-                  className={`text-[10px] font-bold rounded-lg px-2 py-0.5 border cursor-pointer focus:outline-hidden ${
-                    call.status === 'AGENDADA'
-                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800/40'
-                      : call.status === 'EM_ANDAMENTO'
-                      ? 'bg-emerald-50 text-[#277e1b] dark:bg-emerald-950/40 dark:text-[#00FF66] border-emerald-300 dark:border-emerald-800/40'
-                      : 'bg-slate-100 text-slate-600 dark:bg-[#1F2124] dark:text-[#8E959E] border-slate-200 dark:border-[#2D3035]'
-                  }`}
-                >
-                  <option value="AGENDADA">Agendada</option>
-                  <option value="EM_ANDAMENTO">Ao Vivo</option>
-                  <option value="CONCLUIDA">Concluída</option>
-                </select>
+                <p className="text-xs text-slate-600 dark:text-[#A0AEC0] line-clamp-2">
+                  {call.agenda}
+                </p>
+
+                {/* Botões do Meet */}
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-[#25282C]">
+                  <a
+                    href={call.meetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Video className="w-3.5 h-3.5" />
+                    <span>Entrar no Google Meet</span>
+                    <ExternalLink className="w-3 h-3 opacity-70" />
+                  </a>
+
+                  <button
+                    onClick={() => handleCopyMeet(call.id, call.meetUrl)}
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#1F2124] dark:hover:bg-[#25282C] text-slate-600 dark:text-[#A0AEC0] border border-slate-200 dark:border-[#2D3035] transition-colors cursor-pointer"
+                    title="Copiar link da reunião"
+                  >
+                    {copiedCallId === call.id ? <Check className="w-4 h-4 text-[#277e1b] dark:text-[#00FF66]" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
-
-              <p className="text-xs text-slate-600 dark:text-[#A0AEC0] line-clamp-2">
-                {call.agenda}
-              </p>
-
-              {/* Botões do Meet */}
-              <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-[#25282C]">
-                <a
-                  href={call.meetUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Video className="w-3.5 h-3.5" />
-                  <span>Entrar no Google Meet</span>
-                  <ExternalLink className="w-3 h-3 opacity-70" />
-                </a>
-
-                <button
-                  onClick={() => handleCopyMeet(call.id, call.meetUrl)}
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#1F2124] dark:hover:bg-[#25282C] text-slate-600 dark:text-[#A0AEC0] border border-slate-200 dark:border-[#2D3035] transition-colors cursor-pointer"
-                  title="Copiar link da reunião"
-                >
-                  {copiedCallId === call.id ? <Check className="w-4 h-4 text-[#277e1b] dark:text-[#00FF66]" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 4. Acervo de Estudos, Playbooks & Ensinamentos */}
@@ -340,8 +345,13 @@ export const TrainingAndAlignmentDashboard: React.FC<TrainingAndAlignmentDashboa
         </div>
 
         {/* Grade de Materiais */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMaterials.map((mat) => (
+        {filteredMaterials.length === 0 ? (
+          <div className="p-8 text-center bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] rounded-2xl text-xs text-slate-400">
+            Nenhum material de estudo ou playbook cadastrado no momento. Clique em "Adicionar Estudo" acima para incluir playbooks.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredMaterials.map((mat) => (
             <div 
               key={mat.id}
               className="p-5 rounded-2xl bg-white dark:bg-[#181A1D] border border-slate-200 dark:border-[#2D3035] flex flex-col justify-between space-y-3 shadow-xs hover:border-slate-300 dark:hover:border-[#3A3E45] transition-all"
@@ -399,6 +409,7 @@ export const TrainingAndAlignmentDashboard: React.FC<TrainingAndAlignmentDashboa
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {/* MODAL: EDITAR AVISO GERAL */}

@@ -44,8 +44,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [activeTab, setActiveTab] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
 
   // Login Form
-  const [loginEmail, setLoginEmail] = useState('assessoriaflyto@gmail.com');
-  const [loginPassword, setLoginPassword] = useState('12345678');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
@@ -115,12 +115,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
     });
 
     setRegisterSuccess(true);
-  };
-
-  const handleFillDemoAdmin = () => {
-    setLoginEmail('assessoriaflyto@gmail.com');
-    setLoginPassword('12345678');
-    setLoginError(null);
   };
 
   return (
@@ -279,19 +273,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 <span>Entrar no FlytoHUB</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
-
-              {/* Dica de Acesso Rápido para o Admin */}
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#121315] border border-slate-200 dark:border-[#25282C] text-[11px] text-slate-500 dark:text-[#8E959E] flex items-center justify-between">
-                <span>Login Admin: <strong>assessoriaflyto@gmail.com</strong></span>
-                <button
-                  type="button"
-                  onClick={handleFillDemoAdmin}
-                  className="font-extrabold text-[#277e1b] dark:text-[#00FF66] hover:underline cursor-pointer"
-                >
-                  Preencher
-                </button>
-              </div>
-
             </form>
           )}
 

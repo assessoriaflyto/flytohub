@@ -12,16 +12,4 @@ export const initialTeamAnnouncement: TeamAnnouncement = {
 
 export const initialTeamCalls: TeamCall[] = [];
 
-export const initialStudyMaterials: StudyMaterial[] = [
-  {
-    id: 'mat_1',
-    title: 'Framework de Roteirização para Criativos de Alta Conversão',
-    category: 'AUDIOVISUAL_CRIATIVOS',
-    url: 'https://drive.google.com',
-    instructor: 'Diretoria Flyto',
-    description: 'Manual de criação com ganchos dos primeiros 3 segundos, quebra de objeções e chamadas para ação persuasivas.',
-    duration: '25 min',
-    tags: ['Reels', 'Criativos', 'Copywriting', 'Vídeo'],
-    addedAt: new Date().toLocaleDateString('pt-BR')
-  }
-];
+export const initialStudyMaterials: StudyMaterial[] = [];

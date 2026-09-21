@@ -79,18 +79,7 @@ export const App: React.FC = () => {
   const [services, setServices] = useState<OneOffService[]>(INITIAL_ONE_OFF_SERVICES);
   const [referrals, setReferrals] = useState<ReferralDeal[]>(initialReferralDeals);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(initialAuditLogs);
-  const [announcements, setAnnouncements] = useState<TeamAnnouncement[]>([
-    initialTeamAnnouncement,
-    {
-      id: 'ann_2',
-      title: 'Procedimento Operacional Padrão (POP) - Relatórios de Terça-Feira',
-      message: 'Lembrando toda a equipe de performance: os relatórios semanais devem ser enviados aos clientes pontualmente às terças-feiras até às 14h, com comparativo de ROAS e CPA.',
-      author: 'CEO Assessoria Flyto',
-      authorRole: 'CEO & Diretoria',
-      priority: 'IMPORTANTE',
-      publishedAt: '10:00 - 18/09/2026'
-    }
-  ]);
+  const [announcements, setAnnouncements] = useState<TeamAnnouncement[]>([initialTeamAnnouncement]);
   const [teamCalls, setTeamCalls] = useState<TeamCall[]>(initialTeamCalls);
   const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>(initialStudyMaterials);
 
